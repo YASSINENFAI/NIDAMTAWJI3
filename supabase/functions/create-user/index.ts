@@ -42,31 +42,34 @@ Deno.serve(async (req) => {
     if (createErr) throw createErr;
     const newUserId = newUser.user!.id;
 
-    // ── 4. Create partner row linked to the new user ─────────────
-    // role 'supplier' → type 'مورد' | role 'distributor' → type 'موزع'
-    const partnerType = role === 'supplier' ? 'مورد' : 'موزع';
-    const initialLetter = name.trim().charAt(0) || 'م';
+    // ── 4. Get partner row linked to the new user ──────────────
+    // The database trigger public.auto_create_partner() handles creation.
+    // We just need to fetch the ID to return it.
+    let partnerId = null;
+    let attempts = 0;
+    while (attempts < 5) {
+      const { data: partnerRow } = await supabaseAdmin
+        .from('partners')
+        .select('id')
+        .eq('user_id', newUserId)
+        .maybeSingle();
+      
+      if (partnerRow) {
+        partnerId = partnerRow.id;
+        break;
+      }
+      
+      // Wait a bit for the trigger to finish
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+    }
 
-    const { data: partnerRow, error: partnerErr } = await supabaseAdmin
-      .from('partners')
-      .insert({
-        name: name.trim(),
-        type: partnerType,
-        phone: phone || null,
-        initial_letter: initialLetter,
-        user_id: newUserId,
-      })
-      .select('id')
-      .single();
-
-    if (partnerErr) {
-      // Rollback: delete the auth user we just created
-      await supabaseAdmin.auth.admin.deleteUser(newUserId);
-      throw new Error(`فشل إنشاء ملف الشريك: ${partnerErr.message}`);
+    if (!partnerId) {
+      throw new Error('فشل ربط الحساب بملف الشريك تلقائياً. يرجى المحاولة مرة أخرى.');
     }
 
     return new Response(
-      JSON.stringify({ success: true, userId: newUserId, partnerId: partnerRow.id }),
+      JSON.stringify({ success: true, userId: newUserId, partnerId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (e: any) {

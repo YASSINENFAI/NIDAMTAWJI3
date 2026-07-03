@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Product, Supplier, Invoice, InvoiceItem } from '../types';
 import { fmtMAD, fmtMADFull } from '../lib/currency';
+import { exportToExcel } from '../lib/export';
 
 interface DistributorPortalViewProps {
   distributor: Supplier;
@@ -49,8 +50,8 @@ export default function DistributorPortalView({
     const product = products.find(p => p.id === saisieProductId);
     if (!product) { setSaisieError('المنتج غير متوفر.'); return; }
     if (saisieQty > product.stock) { setSaisieError(`الكمية (${saisieQty}) تتجاوز المخزون (${product.stock}).`); return; }
-    const total = saisieQty * product.sellPrice * 1.15;
-    setDailyBatchInvoices(prev => [...prev, { customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, status: 'مستحقة', items: [{ description: `${product.name} (مبيعات التجزئة للعميل: ${saisieCustomerName})`, quantity: saisieQty, price: product.sellPrice, tax: 15, total }] }]);
+    const total = saisieQty * product.sellPrice * 1.20;
+    setDailyBatchInvoices(prev => [...prev, { customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, status: 'مستحقة', items: [{ description: `${product.name} (مبيعات التجزئة للعميل: ${saisieCustomerName})`, quantity: saisieQty, price: product.sellPrice, tax: 20, total }] }]);
     setSaisieProductId(''); setSaisieQty(0); setSaisieCustomerName('');
     setSaisieSuccess('تمت إضافة الفاتورة للدفعة بنجاح!');
     setTimeout(() => setSaisieSuccess(''), 3000);
@@ -80,9 +81,9 @@ export default function DistributorPortalView({
     if (!product) { setErrorMsg('المنتج غير موجود.'); return; }
     if (orderQty <= 0) { setErrorMsg('الرجاء إدخال كمية صحيحة.'); return; }
     if (orderQty > product.stock) { setErrorMsg(`الكمية (${orderQty}) تتجاوز المخزون (${product.stock}).`); return; }
-    const total = orderQty * product.sellPrice * 1.15;
+    const total = orderQty * product.sellPrice * 1.20;
     const invoiceId = 'INV-DIST-' + Math.floor(100000 + Math.random() * 900000);
-    onAddInvoice({ id: invoiceId, customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (سحب بضائع)`, quantity: orderQty, price: product.sellPrice, tax: 15, total }] });
+    onAddInvoice({ id: invoiceId, customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (سحب بضائع)`, quantity: orderQty, price: product.sellPrice, tax: 20, total }] });
     onUpdateProductStock(product.id, -orderQty);
     setSuccessMsg('تم تسجيل الفاتورة بنجاح!');
     setSelectedProductId(''); setOrderQty(0);
@@ -155,8 +156,8 @@ export default function DistributorPortalView({
                         {saisieProductId && saisieQty > 0 && (
                           <div className="p-2.5 bg-slate-900 border border-white/5 rounded-xl text-[10px]">
                             <div className="flex justify-between text-slate-400">
-                              <span>الإجمالي (شامل 15%):</span>
-                              <span className="font-bold text-white">{fmtMADFull((products.find(p => p.id === saisieProductId)?.sellPrice || 0) * saisieQty * 1.15)}</span>
+                              <span>الإجمالي (شامل 20%):</span>
+                              <span className="font-bold text-white">{fmtMADFull((products.find(p => p.id === saisieProductId)?.sellPrice || 0) * saisieQty * 1.20)}</span>
                             </div>
                           </div>
                         )}
@@ -168,11 +169,30 @@ export default function DistributorPortalView({
                       <div className="space-y-2">
                         <div className="flex justify-between items-center px-1">
                           <span className="text-[10.5px] font-bold text-slate-400">دفعة الفواتير ({dailyBatchInvoices.length})</span>
-                          {dailyBatchInvoices.length > 0 && (
-                            <button onClick={handleSyncBatchToCentral} className="text-[10px] font-black text-teal-400 flex items-center gap-1 hover:underline">
-                              <Send className="w-3 h-3" /><span>مزامنة الآن ⚡</span>
-                            </button>
-                          )}
+                          <div className="flex gap-2">
+                            {dailyBatchInvoices.length > 0 && (
+                              <button 
+                                onClick={() => {
+                                  const data = dailyBatchInvoices.map(inv => ({
+                                    'العميل': inv.customerName,
+                                    'التاريخ': inv.date,
+                                    'البيان': inv.items[0].description,
+                                    'الكمية': inv.items[0].quantity,
+                                    'الإجمالي': inv.total
+                                  }));
+                                  exportToExcel(data, `Batch_Export_${new Date().toISOString().split('T')[0]}`, 'Batch');
+                                }} 
+                                className="text-[10px] font-black text-blue-400 flex items-center gap-1 hover:underline"
+                              >
+                                <span>تصدير Excel</span>
+                              </button>
+                            )}
+                            {dailyBatchInvoices.length > 0 && (
+                              <button onClick={handleSyncBatchToCentral} className="text-[10px] font-black text-teal-400 flex items-center gap-1 hover:underline">
+                                <Send className="w-3 h-3" /><span>مزامنة الآن ⚡</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {dailyBatchInvoices.length === 0 ? (
                           <div className="p-6 text-center text-slate-500 text-[10px] bg-slate-950/40 border border-white/5 rounded-2xl">سجل التفريغ فارغ.</div>

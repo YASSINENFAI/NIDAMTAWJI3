@@ -133,7 +133,7 @@ export default function SupplierPortalView({
         <div className="bg-white border border-outline-variant p-6 rounded-2xl flex items-center justify-between ambient-shadow">
           <div className="space-y-1 text-right">
             <span className="text-slate-400 text-xs font-bold block">إجمالي قيمة التوريدات</span>
-            <span className="text-2xl font-black text-slate-900 block">{(supplier.totalEarned || 0).toLocaleString()} ر.س</span>
+            <span className="text-2xl font-black text-slate-900 block">{(supplier.totalEarned || 0).toLocaleString()} د.م.</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600">
             <DollarSign className="w-6 h-6" />
@@ -205,7 +205,7 @@ export default function SupplierPortalView({
                       <td className="py-3.5 px-6 font-bold text-slate-900 font-mono">{inv.id}</td>
                       <td className="py-3.5 px-6 text-slate-500 font-mono text-xs">{inv.date}</td>
                       <td className="py-3.5 px-6 font-semibold text-slate-800 text-xs">{inv.productsSummary}</td>
-                      <td className="py-3.5 px-6 font-black text-slate-900 text-xs">{(inv.amount || 0).toLocaleString()} ر.س</td>
+                      <td className="py-3.5 px-6 font-black text-slate-900 text-xs">{(inv.amount || 0).toLocaleString()} د.م.</td>
                       <td className="py-3.5 px-6 text-center">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-100">
                           <CheckCircle className="w-3.5 h-3.5" />
@@ -265,7 +265,7 @@ export default function SupplierPortalView({
                   </div>
                   <div className="text-left">
                     <span className="text-[10px] font-bold text-slate-500 block">سعر التوريد المعتمد</span>
-                    <span className="text-xs font-black text-primary block">{p.buyPrice} ر.س</span>
+                    <span className="text-xs font-black text-primary block">{p.buyPrice} د.م.</span>
                   </div>
                 </div>
               ))}
@@ -365,7 +365,7 @@ export default function SupplierPortalView({
 
                   {/* Supply Price */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-700 block">سعر الوحدة (ر.س) *</label>
+                    <label className="text-xs font-bold text-slate-700 block">سعر الوحدة (د.م.) *</label>
                     <input 
                       type="number"
                       step="0.01"
@@ -384,7 +384,7 @@ export default function SupplierPortalView({
                 <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl flex justify-between items-center text-right">
                   <span className="text-slate-500 text-xs font-bold">إجمالي قيمة الفاتورة المضافة:</span>
                   <span className="text-sm font-black text-primary font-mono">
-                    {((supplyQty || 0) * (parseFloat(supplyPrice) || 0)).toLocaleString()} ر.س
+                    {((supplyQty || 0) * (parseFloat(supplyPrice) || 0)).toLocaleString()} د.م.
                   </span>
                 </div>
 

@@ -130,7 +130,7 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
     monthlyGrowth: 12,
     initialLetter: 'ج',
     type: 'مورد',
-    phone: '+966 50 111 2222',
+    phone: '+212 6 00 00 00 00',
     invoices: [
       {
         id: 'INV-2023-089',
@@ -162,7 +162,7 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
     monthlyGrowth: 8,
     initialLetter: 'خ',
     type: 'مورد',
-    phone: '+966 50 333 4444',
+    phone: '+212 6 00 00 00 01',
     invoices: [
       {
         id: 'INV-2023-094',
@@ -187,7 +187,7 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
     monthlyGrowth: -3,
     initialLetter: 'ر',
     type: 'موزع',
-    phone: '+966 50 555 6666',
+    phone: '+212 6 00 00 00 02',
     invoices: [
       {
         id: 'INV-2023-102',
@@ -212,7 +212,7 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
     monthlyGrowth: 15,
     initialLetter: 'م',
     type: 'موزع',
-    phone: '+966 50 777 8888',
+    phone: '+212 6 00 00 00 03',
     invoices: []
   }
 ];

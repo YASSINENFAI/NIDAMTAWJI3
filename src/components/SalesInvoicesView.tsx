@@ -130,10 +130,10 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
       return;
     }
 
-    // Process items to include VAT 15%
+    // Process items to include VAT 20% (Morocco Standard)
     const processedItems: InvoiceItem[] = validItems.map(item => {
       const subtotal = item.price * item.quantity;
-      const tax = parseFloat((subtotal * 0.15).toFixed(2));
+      const tax = parseFloat((subtotal * 0.20).toFixed(2));
       const total = parseFloat((subtotal + tax).toFixed(2));
       return {
         description: item.description,
@@ -429,9 +429,9 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
                   <div className="flex justify-between items-start border-b border-outline-variant pb-4">
                     <div className="text-right space-y-1">
                       <h2 className="text-sm font-bold text-primary">نظام السحاب المتكامل</h2>
-                      <p className="text-[9px] text-on-surface-variant">الرياض، المملكة العربية السعودية</p>
+                      <p className="text-[9px] text-on-surface-variant">الدار البيضاء، المغرب</p>
                       <p className="text-[9px] text-on-surface-variant">الرقم الضريبي: 300123456700003</p>
-                      <p className="text-[9px] text-on-surface-variant">هاتف: +966 11 234 5678</p>
+                      <p className="text-[9px] text-on-surface-variant">هاتف: +212 5 22 34 56 78</p>
                     </div>
                     <div className="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant border border-dashed border-outline-variant">
                       <Hash className="w-6 h-6 text-primary-fixed-dim" />
@@ -470,7 +470,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
                         <th className="py-2 px-1 text-right">الوصف</th>
                         <th className="py-2 px-1 text-center w-10">الكمية</th>
                         <th className="py-2 px-1 text-left w-16">السعر</th>
-                        <th className="py-2 px-1 text-left w-16">الضريبة (15%)</th>
+                        <th className="py-2 px-1 text-left w-16">الضريبة (20%)</th>
                         <th className="py-2 px-1 text-left w-20">المجموع</th>
                       </tr>
                     </thead>
@@ -526,7 +526,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
                   <div className="text-center w-full space-y-0.5">
                     <h2 className="text-[10px] font-bold">نظام السحاب المتكامل</h2>
                     <p className="text-[7px]">الرقم الضريبي: 300123456700003</p>
-                    <p className="text-[7px]">هاتف: +966112345678</p>
+                    <p className="text-[7px]">هاتف: +212522345678</p>
                   </div>
                   
                   <div className="border-b border-dashed border-on-surface w-full"></div>
@@ -563,7 +563,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
 
                   <div className="w-full space-y-0.5 text-right">
                     <div className="flex justify-between"><span>الإجمالي شامل الضريبة:</span><span className="font-bold">{selectedInvoice.total.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-[6px]"><span>ضريبة القيمة المضافة (15%):</span><span>{selectedInvoice.items.reduce((a, b) => a + b.tax, 0).toFixed(2)}</span></div>
+                    <div className="flex justify-between text-[6px]"><span>ضريبة القيمة المضافة (20%):</span><span>{selectedInvoice.items.reduce((a, b) => a + b.tax, 0).toFixed(2)}</span></div>
                     <div className="flex justify-between font-bold text-red-600"><span>المبلغ المستحق:</span><span>{selectedInvoice.balance.toFixed(2)}</span></div>
                   </div>
 

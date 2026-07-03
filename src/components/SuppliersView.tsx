@@ -20,6 +20,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { Supplier, SupplierInvoice } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface SuppliersViewProps {
   suppliers: Supplier[];
@@ -46,6 +47,9 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
   const [newSupName, setNewSupName] = useState('');
   const [newSupType, setNewSupType] = useState<'مورد' | 'موزع'>('مورد');
   const [newSupPhone, setNewSupPhone] = useState('');
+  const [newSupEmail, setNewSupEmail] = useState('');
+  const [newSupPassword, setNewSupPassword] = useState('');
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [addSupplierError, setAddSupplierError] = useState('');
   const [addSupplierSuccess, setAddSupplierSuccess] = useState('');
 
@@ -102,7 +106,7 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
     }, 4000);
   };
 
-  const handleCreateSupplier = (e: FormEvent) => {
+  const handleCreateSupplier = async (e: FormEvent) => {
     e.preventDefault();
     setAddSupplierError('');
     setAddSupplierSuccess('');
@@ -112,15 +116,46 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
       return;
     }
 
-    onAddSupplier({
-      name: newSupName,
-      type: newSupType,
-      phone: newSupPhone || undefined
-    });
+    if (isCreatingAccount) {
+      if (!newSupEmail.trim() || !newSupPassword.trim()) {
+        setAddSupplierError('يرجى إدخال البريد الإلكتروني وكلمة السر للحساب');
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('create-user', {
+          body: {
+            email: newSupEmail,
+            password: newSupPassword,
+            role: newSupType === 'مورد' ? 'supplier' : 'distributor',
+            name: newSupName,
+            phone: newSupPhone
+          }
+        });
+        
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        
+        setAddSupplierSuccess('تم إنشاء الحساب وملف الشريك بنجاح!');
+      } catch (err: any) {
+        setAddSupplierError(`خطأ: ${err.message}`);
+        return;
+      }
+    } else {
+      onAddSupplier({
+        name: newSupName,
+        type: newSupType,
+        phone: newSupPhone || undefined
+      });
+      setAddSupplierSuccess('تمت إضافة الجهة بنجاح!');
+    }
 
-    setAddSupplierSuccess('تمت إضافة الجهة بنجاح!');
+    // Reset form
     setNewSupName('');
     setNewSupPhone('');
+    setNewSupEmail('');
+    setNewSupPassword('');
+    setIsCreatingAccount(false);
     
     setTimeout(() => {
       setShowAddSupplierModal(false);
@@ -220,7 +255,7 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-semibold text-on-surface-variant">إجمالي المشتريات المستحقة</span>
                 <span className="text-3xl font-bold text-primary flex items-baseline gap-1" dir="ltr">
-                  <span className="text-xs font-semibold text-on-surface-variant">ر.س</span>
+                  <span className="text-xs font-semibold text-on-surface-variant">د.م.</span>
                   {selectedSupplier.totalEarned.toLocaleString()}
                 </span>
               </div>
@@ -322,7 +357,7 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-on-surface-variant">المبلغ الإجمالي (شامل الضريبة)</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs text-on-surface-variant font-bold">ر.س</span>
+                  <span className="absolute left-3.5 text-xs text-on-surface-variant font-bold">د.م.</span>
                   <input 
                     type="number"
                     step="0.01"
@@ -411,7 +446,7 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
                         <td className="p-3 font-mono font-bold text-primary">{inv.id}</td>
                         <td className="p-3 font-mono text-xs text-on-surface-variant">{inv.date}</td>
                         <td className="p-3 font-semibold text-on-surface-variant">{inv.productsSummary}</td>
-                        <td className="p-3 font-mono font-bold">{inv.amount.toLocaleString()} ر.س</td>
+                        <td className="p-3 font-mono font-bold">{inv.amount.toLocaleString()} د.م.</td>
                         <td className="p-3">
                           <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
                             inv.status === 'مكتملة' 
@@ -561,6 +596,53 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
                     </div>
                   </div>
                 </div>
+
+                {/* Account Creation Toggle */}
+                <div className="pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      checked={isCreatingAccount} 
+                      onChange={(e) => setIsCreatingAccount(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">إنشاء حساب دخول للمنصة (اختياري)</span>
+                  </label>
+                </div>
+
+                {isCreatingAccount && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    className="space-y-3 overflow-hidden"
+                  >
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 block">البريد الإلكتروني *</label>
+                      <input 
+                        type="email"
+                        required
+                        placeholder="user@example.com"
+                        value={newSupEmail}
+                        onChange={(e) => setNewSupEmail(e.target.value)}
+                        className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono focus:outline-none focus:border-primary bg-slate-50"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 block">كلمة السر *</label>
+                      <input 
+                        type="password"
+                        required
+                        minLength={8}
+                        placeholder="********"
+                        value={newSupPassword}
+                        onChange={(e) => setNewSupPassword(e.target.value)}
+                        className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono focus:outline-none focus:border-primary bg-slate-50"
+                        dir="ltr"
+                      />
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Footer Buttons */}
                 <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">

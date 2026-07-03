@@ -86,9 +86,9 @@ export default function DistributorsReportView({
     const product = products.find(p => p.id === saisieProductId);
     if (!product) { setSaisieError('المنتج غير متوفر.'); return; }
     if (saisieQty > product.stock) { setSaisieError(`الكمية (${saisieQty}) تفوق المتوفر (${product.stock}).`); return; }
-    const total = saisieQty * product.sellPrice * 1.15;
+    const total = saisieQty * product.sellPrice * 1.20;
     const invoiceId = 'SAISIE-' + Math.floor(100000 + Math.random() * 900000);
-    onAddInvoice({ id: invoiceId, customerName: selectedDistributor.name, customerVat: '300123456700003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (تفريغ مبيعات مناديب)`, quantity: saisieQty, price: product.sellPrice, tax: 15, total }] });
+    onAddInvoice({ id: invoiceId, customerName: selectedDistributor.name, customerVat: '300123456700003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (تفريغ مبيعات مناديب)`, quantity: saisieQty, price: product.sellPrice, tax: 20, total }] });
     onUpdateProductStock(product.id, -saisieQty);
     setSaisieSuccess(`تم تسجيل الفاتورة ${invoiceId} بنجاح!`);
     setSaisieProductId(''); setSaisieQty(0);

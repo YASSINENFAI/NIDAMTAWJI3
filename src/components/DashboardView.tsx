@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Product, Invoice } from '../types';
 import { fmtMAD } from '../lib/currency';
+import { exportToExcel, exportToPDF } from '../lib/export';
 
 interface DashboardViewProps {
   products: Product[];
@@ -28,7 +29,26 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
   const outstandingDebts = invoices.filter(inv => inv.status === 'مستحقة').reduce((acc, inv) => acc + inv.balance, 0);
 
   const handleExport = (type: 'excel' | 'pdf') => {
-    setShowNotification(type === 'excel' ? 'تم تصدير ملف Excel بنجاح وجاري التحميل...' : 'تم إنشاء تقرير PDF المالي بنجاح وبانتظار الطباعة...');
+    if (type === 'excel') {
+      const exportData = [
+        { 'المؤشر': 'إجمالي المبيعات اليومية', 'القيمة': fmtMAD(totalSalesEstimate || 12500) },
+        { 'المؤشر': 'الأرباح المقدرة', 'القيمة': fmtMAD(2300) },
+        { 'المؤشر': 'جرد المخزون', 'القيمة': totalProducts.toLocaleString('ar-MA') },
+        { 'المؤشر': 'الديون القائمة', 'القيمة': fmtMAD(outstandingDebts || 5000) },
+      ];
+      exportToExcel(exportData, `Sahab_ERP_Summary_${new Date().toISOString().split('T')[0]}`, 'Summary');
+      setShowNotification('تم تصدير ملف Excel بنجاح وجاري التحميل...');
+    } else {
+      const columns = ['Indicator', 'Value'];
+      const data = [
+        ['Total Daily Sales', fmtMAD(totalSalesEstimate || 12500)],
+        ['Estimated Profit', fmtMAD(2300)],
+        ['Inventory Count', totalProducts.toLocaleString('ar-MA')],
+        ['Outstanding Debts', fmtMAD(outstandingDebts || 5000)],
+      ];
+      exportToPDF(columns, data, `Sahab_ERP_Report_${new Date().toISOString().split('T')[0]}`, 'Financial Summary Report');
+      setShowNotification('تم إنشاء تقرير PDF المالي بنجاح وبانتظار الطباعة...');
+    }
     setTimeout(() => setShowNotification(null), 4000);
   };
 

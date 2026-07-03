@@ -22,6 +22,13 @@ BEGIN
     RETURN NEW; -- إذا كان الدور ليس مورّد أو موزّع، لا نفعل شيئاً
   END IF;
 
+  -- 1. محاولة ربط حساب المستخدم بملف شريك موجود (إذا كان الاسم أو الهاتف متطابقاً ولم يربط بعد)
+  UPDATE public.partners 
+  SET user_id = NEW.id 
+  WHERE user_id IS NULL 
+  AND (name = TRIM(v_name) OR phone = v_phone);
+
+  -- 2. إذا لم يتم الربط، قم بإنشاء ملف شريك جديد
   IF NOT EXISTS (SELECT 1 FROM public.partners WHERE user_id = NEW.id) THEN
     INSERT INTO public.partners (name, type, phone, initial_letter, user_id)
     VALUES (
@@ -37,7 +44,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS on_auth_user_created_partner ON auth.users;
-CREATE TRIGGER on_auth_user_created_partner
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.auto_create_partner();

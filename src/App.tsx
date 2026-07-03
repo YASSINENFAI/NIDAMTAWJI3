@@ -8,14 +8,14 @@ import {
   Download,
   Smartphone,
   X,
-  Check,
   Users,
-  Sparkles,
   LogOut,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { ActiveTab } from './types';
+import { supabaseConfigured } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
 import { useData } from './hooks/useData';
 import { signOut } from './lib/auth';
@@ -59,6 +59,29 @@ export default function App() {
     }
   };
 
+  // 0. Show config error if Supabase env vars are missing
+  if (!supabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 p-6" dir="rtl">
+        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+          <AlertTriangle className="w-7 h-7 text-amber-400" />
+        </div>
+        <h1 className="text-white font-bold text-lg">إعداد Supabase مفقود</h1>
+        <p className="text-slate-400 text-sm text-center max-w-sm leading-relaxed">
+          متغيرات البيئة <code className="text-teal-400">VITE_SUPABASE_URL</code> و
+          <code className="text-teal-400"> VITE_SUPABASE_ANON_KEY</code> غير موجودة.
+          أضفها في <strong className="text-white">Vercel → Settings → Environment Variables</strong> ثم أعد النشر.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white rounded-xl text-sm font-bold transition-all"
+        >
+          إعادة التحميل
+        </button>
+      </div>
+    );
+  }
+
   // Auth
   const { session, role, partnerId, loading: authLoading } = useAuth();
 
@@ -71,14 +94,11 @@ export default function App() {
     handleAddSupplier, handleAddSupplierInvoice,
   } = useData();
 
-  const handleLogout = async () => {
-    await signOut();
-  };
+  const handleLogout = async () => { await signOut(); };
 
-  // Current partner entity for supplier/distributor portals
   const currentEntity = suppliers.find((s) => s.id === partnerId);
 
-  // 1. Auth loading spinner
+  // 1. Auth loading
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -87,7 +107,7 @@ export default function App() {
     );
   }
 
-  // 2. Not logged in → show login screen
+  // 2. Not logged in
   if (!session || role === 'guest') {
     return <LoginScreen onLoginSuccess={() => {}} />;
   }
@@ -106,11 +126,9 @@ export default function App() {
   if (dataError) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3 p-6" dir="rtl">
+        <AlertTriangle className="w-8 h-8 text-rose-400" />
         <p className="text-rose-400 text-sm text-center">خطأ في تحميل البيانات: {dataError}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-teal-500 text-white rounded-xl text-xs font-bold"
-        >
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-teal-500 text-white rounded-xl text-xs font-bold">
           إعادة المحاولة
         </button>
       </div>
@@ -121,13 +139,7 @@ export default function App() {
   if (role === 'supplier' && currentEntity) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
-        <SupplierPortalView
-          supplier={currentEntity}
-          products={products}
-          onAddSupplierInvoice={handleAddSupplierInvoice}
-          onUpdateProductStock={handleUpdateProductStock}
-          onLogout={handleLogout}
-        />
+        <SupplierPortalView supplier={currentEntity} products={products} onAddSupplierInvoice={handleAddSupplierInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
       </div>
     );
   }
@@ -136,14 +148,7 @@ export default function App() {
   if (role === 'distributor' && currentEntity) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
-        <DistributorPortalView
-          distributor={currentEntity}
-          products={products}
-          invoices={invoices}
-          onAddInvoice={handleAddInvoice}
-          onUpdateProductStock={handleUpdateProductStock}
-          onLogout={handleLogout}
-        />
+        <DistributorPortalView distributor={currentEntity} products={products} invoices={invoices} onAddInvoice={handleAddInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
       </div>
     );
   }
@@ -157,19 +162,11 @@ export default function App() {
         <span className="font-bold text-base text-primary">سحاب ERP</span>
         <div className="flex items-center gap-3">
           {!isAlreadyInstalled && (
-            <button
-              onClick={triggerPWAInstall}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white rounded-full text-xs font-bold shadow-sm transition-all"
-            >
-              <Download className="w-3 h-3" />
-              <span>تثبيت</span>
+            <button onClick={triggerPWAInstall} className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white rounded-full text-xs font-bold shadow-sm transition-all">
+              <Download className="w-3 h-3" /><span>تثبيت</span>
             </button>
           )}
-          <button
-            onClick={handleLogout}
-            title="خروج"
-            className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded-lg text-rose-600 border border-rose-100/50 transition-colors"
-          >
+          <button onClick={handleLogout} className="p-1.5 bg-rose-50 hover:bg-rose-100 rounded-lg text-rose-600 border border-rose-100/50 transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -181,7 +178,6 @@ export default function App() {
           <span className="font-bold text-lg tracking-wide text-white block">نظام السحاب المتكامل</span>
           <span className="text-[10px] text-primary-fixed-dim block mt-0.5 uppercase tracking-wider">لوحة إدارة الأعمال</span>
         </div>
-
         <div className="flex-1 py-6 flex flex-col justify-between">
           <nav className="space-y-1.5 px-3">
             {([
@@ -191,51 +187,32 @@ export default function App() {
               { tab: 'suppliers', icon: <Truck className="w-5 h-5" />, label: 'الموردين والمشتريات' },
               { tab: 'distributors', icon: <Users className="w-5 h-5" />, label: 'تقارير الموزعين' },
             ] as { tab: ActiveTab; icon: React.ReactNode; label: string }[]).map(({ tab, icon, label }) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+              <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex items-center justify-start gap-3.5 w-full px-4 py-3 rounded-xl transition-all duration-200 text-sm font-semibold ${
-                  activeTab === tab
-                    ? 'bg-secondary text-white border-r-4 border-white shadow-md'
-                    : 'text-primary-fixed-dim hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                {icon}
-                <span>{label}</span>
+                  activeTab === tab ? 'bg-secondary text-white border-r-4 border-white shadow-md' : 'text-primary-fixed-dim hover:bg-white/5 hover:text-white'
+                }`}>
+                {icon}<span>{label}</span>
               </button>
             ))}
-
             {!isAlreadyInstalled && (
               <div className="mt-6 mx-1 p-3.5 rounded-xl bg-white/5 border border-white/10 text-right space-y-2.5">
                 <div className="flex items-center gap-2 text-white">
                   <Smartphone className="w-4 h-4 text-teal-400" />
-                  <span className="text-[12px] font-bold">تطبيق الجوال المباشر</span>
+                  <span className="text-[12px] font-bold">تطبيق الجوال</span>
                 </div>
-                <p className="text-[10.5px] text-white/75 leading-relaxed">
-                  ثبّت نظام السحاب كـتطبيق جوال حقيقي.
-                </p>
-                <button
-                  onClick={triggerPWAInstall}
-                  className="w-full py-2.5 bg-secondary hover:bg-secondary/90 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>تثبيت التطبيق</span>
+                <button onClick={triggerPWAInstall} className="w-full py-2.5 bg-secondary hover:bg-secondary/90 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md">
+                  <Download className="w-3.5 h-3.5" /><span>تثبيت التطبيق</span>
                 </button>
               </div>
             )}
           </nav>
-
           <div className="px-4 py-4 border-t border-white/10 flex flex-col gap-3">
             <div className="text-right">
               <span className="text-xs font-bold block text-white">المدير العام</span>
               <span className="text-[10px] text-primary-fixed-dim block">{session.user.email}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="w-full py-2 bg-white/5 hover:bg-white/10 text-white/95 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-white/10"
-            >
-              <LogOut className="w-3.5 h-3.5 text-rose-400" />
-              <span>خروج</span>
+            <button onClick={handleLogout} className="w-full py-2 bg-white/5 hover:bg-white/10 text-white/95 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-white/10">
+              <LogOut className="w-3.5 h-3.5 text-rose-400" /><span>خروج</span>
             </button>
           </div>
         </div>
@@ -244,35 +221,12 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 mt-16 md:mt-0 md:mr-[240px] p-4 md:p-8 pb-24 md:pb-8 w-full max-w-7xl mx-auto print:mr-0 print:mt-0 print:p-0 print:max-w-none">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            {activeTab === 'dashboard' && (
-              <DashboardView products={products} invoices={invoices} onNavigate={(tab) => setActiveTab(tab)} />
-            )}
-            {activeTab === 'inventory' && (
-              <InventoryView products={products} onAddProduct={handleAddProduct} onDeleteProduct={handleDeleteProduct} />
-            )}
-            {activeTab === 'sales' && (
-              <SalesInvoicesView invoices={invoices} onAddInvoice={handleAddInvoice} />
-            )}
-            {activeTab === 'suppliers' && (
-              <SuppliersView suppliers={suppliers} onAddSupplierInvoice={handleAddSupplierInvoice} onAddSupplier={handleAddSupplier} />
-            )}
-            {activeTab === 'distributors' && (
-              <DistributorsReportView
-                distributors={suppliers.filter((s) => s.type === 'موزع')}
-                products={products}
-                invoices={invoices}
-                onAddInvoice={handleAddInvoice}
-                onUpdateProductStock={handleUpdateProductStock}
-                onAddSupplier={handleAddSupplier}
-              />
-            )}
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }} transition={{ duration: 0.25, ease: 'easeOut' }}>
+            {activeTab === 'dashboard' && <DashboardView products={products} invoices={invoices} onNavigate={(tab) => setActiveTab(tab)} />}
+            {activeTab === 'inventory' && <InventoryView products={products} onAddProduct={handleAddProduct} onDeleteProduct={handleDeleteProduct} />}
+            {activeTab === 'sales' && <SalesInvoicesView invoices={invoices} onAddInvoice={handleAddInvoice} />}
+            {activeTab === 'suppliers' && <SuppliersView suppliers={suppliers} onAddSupplierInvoice={handleAddSupplierInvoice} onAddSupplier={handleAddSupplier} />}
+            {activeTab === 'distributors' && <DistributorsReportView distributors={suppliers.filter((s) => s.type === 'موزع')} products={products} invoices={invoices} onAddInvoice={handleAddInvoice} onUpdateProductStock={handleUpdateProductStock} onAddSupplier={handleAddSupplier} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -286,66 +240,41 @@ export default function App() {
           { tab: 'suppliers', icon: <Truck className="w-5 h-5 mb-1" />, label: 'الموردين' },
           { tab: 'distributors', icon: <Users className="w-5 h-5 mb-1" />, label: 'المناديب' },
         ] as { tab: ActiveTab; icon: React.ReactNode; label: string }[]).map(({ tab, icon, label }) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+          <button key={tab} onClick={() => setActiveTab(tab)}
             className={`flex flex-col items-center justify-center transition-all p-2 w-16 h-full ${
               activeTab === tab ? 'text-primary font-bold' : 'text-on-surface-variant'
-            }`}
-          >
-            {icon}
-            <span className="text-[10px]">{label}</span>
+            }`}>
+            {icon}<span className="text-[10px]">{label}</span>
           </button>
         ))}
       </nav>
 
-      {/* PWA Install Modal */}
+      {/* PWA Modal */}
       <AnimatePresence>
         {isInstallModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setIsInstallModalOpen(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-outline-variant z-10 text-right"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsInstallModalOpen(false)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-outline-variant z-10 text-right">
               <div className="bg-primary text-white p-6 relative">
-                <button onClick={() => setIsInstallModalOpen(false)} className="absolute left-4 top-5 p-2 rounded-full hover:bg-white/10 text-white">
-                  <X className="w-5 h-5" />
-                </button>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                    <Smartphone className="w-5 h-5 text-teal-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg">تثبيت تطبيق السحاب</h3>
-                    <p className="text-[11px] text-white/80 mt-0.5">احصل على تجربة سريعة من شاشتك الرئيسية</p>
-                  </div>
-                </div>
+                <button onClick={() => setIsInstallModalOpen(false)} className="absolute left-4 top-5 p-2 rounded-full hover:bg-white/10 text-white"><X className="w-5 h-5" /></button>
+                <h3 className="font-bold text-lg">تثبيت تطبيق السحاب</h3>
               </div>
               <div className="p-6 space-y-4">
-                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/60 space-y-1">
-                  <span className="text-xs font-bold text-blue-900 block">📱 أندرويد وكروم للكمبيوتر</span>
-                  <p className="text-[11.5px] text-blue-800">انقر القائمة (⋮) ثم <strong>تثبيت التطبيق</strong>.</p>
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100/60">
+                  <span className="text-xs font-bold text-blue-900 block">📱 أندرويد / كروم</span>
+                  <p className="text-[11.5px] text-blue-800 mt-1">اضغط القائمة (⋮) ثم <strong>تثبيت التطبيق</strong>.</p>
                 </div>
                 <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100/60 space-y-2">
-                  <span className="text-xs font-bold text-amber-900 block">🍎 آيفون وآيباد (Safari)</span>
+                  <span className="text-xs font-bold text-amber-900 block">🍎 آيفون (Safari)</span>
                   <ol className="list-decimal list-inside text-[11px] text-amber-900/90 space-y-1 pr-1">
-                    <li>اضغط <strong>المشاركة 📤</strong> في الأسفل.</li>
-                    <li>اختر <strong>إضافة إلى الشاشة الرئيسية ➕</strong>.</li>
-                    <li>انقر <strong>إضافة</strong>.</li>
+                    <li>اضغط <strong>المشاركة 📤</strong></li>
+                    <li>اختر <strong>إضافة إلى الشاشة الرئيسية ➕</strong></li>
+                    <li>اضغط <strong>إضافة</strong></li>
                   </ol>
                 </div>
               </div>
               <div className="p-5 bg-slate-50 border-t border-slate-100 flex justify-end">
-                <button onClick={() => setIsInstallModalOpen(false)} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold">
-                  حسناً، فهمت
-                </button>
+                <button onClick={() => setIsInstallModalOpen(false)} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold">حسناً</button>
               </div>
             </motion.div>
           </div>

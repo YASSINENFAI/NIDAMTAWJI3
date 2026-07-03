@@ -1,0 +1,6 @@
+{
+  "name": "نظام السحاب المتكامل",
+  "description": "نظام سحابي متكامل لإدارة الأعمال والمبيعات والمخزون والموردين والفواتير الضريبية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

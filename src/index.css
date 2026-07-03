@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Arabic", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* ERP theme palette matching screenshots */
+  --color-primary: #091426;
+  --color-secondary: #505f76;
+  --color-background: #f7f9fb;
+  --color-surface: #f7f9fb;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #45474c;
+  --color-outline-variant: #c5c6cd;
+  --color-primary-fixed-dim: #bcc7de;
+  --color-primary-fixed: #d8e3fb;
+  --color-secondary-fixed: #d3e4fe;
+  --color-tertiary-fixed: #fadfb8;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container: #eceef0;
+  --color-surface-container-high: #e6e8ea;
+  --color-surface-container-highest: #e0e3e5;
+  --color-secondary-container: #d0e1fb;
+  --color-on-secondary-container: #54647a;
+  --color-on-primary-fixed-variant: #3c475a;
+  --color-secondary-fixed-dim: #b7c8e1;
+  --color-on-secondary-fixed-variant: #38485d;
+  --color-on-tertiary-fixed-variant: #564427;
+  --color-tertiary-container: #35260c;
+  --color-on-tertiary-container: #a38c6a;
+  --color-inverse-surface: #2d3133;
+}
+
+@layer base {
+  body {
+    font-family: "IBM Plex Sans Arabic", "Inter", sans-serif;
+    @apply bg-background text-on-surface antialiased;
+  }
+}
+
+/* Custom styles and print emulation support */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.ambient-shadow {
+  box-shadow: 0 10px 40px -10px rgba(9, 20, 38, 0.05);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f2f4f6; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c5c6cd; 
+  border-radius: 4px;
+}
+
+/* Print Styles Override */
+@media print {
+  @page {
+    margin: 15mm;
+    size: portrait;
+  }
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+  }
+  /* Remove browser default header/footer text printing where possible */
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    background: #fff;
+  }
+}
+

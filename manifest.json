@@ -1,0 +1,18 @@
+{
+  "short_name": "سحاب ERP",
+  "name": "نظام السحاب المتكامل لإدارة الأعمال",
+  "description": "نظام سحابي متكامل لإدارة الأعمال، الفواتير الضريبية، المشتريات، والمخازن",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/aida-public/AB6AXuASwUNKzTFIZZncLVPeITmCPV77X-50VwMRLfDdnw0boZLre6MTc8-hd28zRIucnZlHNyauqj-ThzRJeZY_EutVKWLSoSdRBm4HK6x810ntiTuKUSDAnQBGbx4CjLYRlHzI40K8Y1NZ1vvdYtftRtKFV3Fl9MeZ2X9dgfKstfDU3e7JiAD0RNp2LyN-A4B07vKVeHDf5tGOC5KY2PMU2jvD39Dl0QCfliXGAMGhyhcvhAdq5ZU8gK4EDE-H-zMsa_mfdrD3mkI8Snkr",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#f7f9fb",
+  "theme_color": "#091426",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

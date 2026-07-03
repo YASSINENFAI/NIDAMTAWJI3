@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Boxes, Receipt, Truck,
   Download, Smartphone, X, Users, LogOut,
-  Loader2, AlertTriangle, UserCog,
+  Loader2, AlertTriangle, UserCog, ShieldOff,
 } from 'lucide-react';
 
 import { ActiveTab } from './types';
@@ -84,7 +84,63 @@ export default function App() {
   // ── 2. Not logged in ────────────────────────────────────────────
   if (!session || role === 'guest') return <LoginScreen onLoginSuccess={() => {}} />;
 
-  // ── 3. Data loading ─────────────────────────────────────────────
+  // ── 3. Supplier portal (STRICT: role must be exactly 'supplier') ─
+  if (role === 'supplier') {
+    if (!currentEntity) return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 p-6 text-center" dir="rtl">
+        <ShieldOff className="w-10 h-10 text-amber-400" />
+        <h2 className="text-white font-bold text-lg">الحساب غير مرتبط بمورّد</h2>
+        <p className="text-slate-400 text-sm max-w-sm">تواصل مع المدير لربط حسابك بملف المورد الصحيح في النظام.</p>
+        <button onClick={handleLogout} className="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold flex items-center gap-2">
+          <LogOut className="w-4 h-4" /><span>خروج</span>
+        </button>
+      </div>
+    );
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
+        <SupplierPortalView supplier={currentEntity} products={products} onAddSupplierInvoice={handleAddSupplierInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
+      </div>
+    );
+  }
+
+  // ── 4. Distributor portal (STRICT: role must be exactly 'distributor') ─
+  if (role === 'distributor') {
+    if (!currentEntity) return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 p-6 text-center" dir="rtl">
+        <ShieldOff className="w-10 h-10 text-amber-400" />
+        <h2 className="text-white font-bold text-lg">الحساب غير مرتبط بموزّع</h2>
+        <p className="text-slate-400 text-sm max-w-sm">تواصل مع المدير لربط حسابك بملف الموزع الصحيح في النظام.</p>
+        <button onClick={handleLogout} className="px-5 py-2.5 bg-rose-600 text-white rounded-xl text-sm font-bold flex items-center gap-2">
+          <LogOut className="w-4 h-4" /><span>خروج</span>
+        </button>
+      </div>
+    );
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
+        <DistributorPortalView distributor={currentEntity} products={products} invoices={invoices} onAddInvoice={handleAddInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
+      </div>
+    );
+  }
+
+  // ── 5. STRICT Admin-only guard ──────────────────────────────────
+  // Only role === 'admin' reaches here. Any unknown/unassigned role is BLOCKED.
+  if (role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 p-6 text-center" dir="rtl">
+        <ShieldOff className="w-12 h-12 text-rose-400" />
+        <h2 className="text-white font-bold text-xl">غير مصرح بالدخول</h2>
+        <p className="text-slate-400 text-sm max-w-sm">
+          حسابك (<span className="text-slate-300 font-mono">{session.user.email}</span>) لا يملك صلاحية الوصول لهذه اللوحة.
+          <br />تواصل مع مدير النظام لتعيين الدور الصحيح.
+        </p>
+        <button onClick={handleLogout} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-colors">
+          <LogOut className="w-4 h-4" /><span>خروج</span>
+        </button>
+      </div>
+    );
+  }
+
+  // ── 6. Data loading (admin only reaches here) ───────────────────
   if (dataLoading) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3" dir="rtl">
       <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
@@ -92,7 +148,7 @@ export default function App() {
     </div>
   );
 
-  // ── 4. Data error ───────────────────────────────────────────────
+  // ── 7. Data error ───────────────────────────────────────────────
   if (dataError) return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3 p-6" dir="rtl">
       <AlertTriangle className="w-8 h-8 text-rose-400" />
@@ -101,21 +157,7 @@ export default function App() {
     </div>
   );
 
-  // ── 5. Supplier portal ──────────────────────────────────────────
-  if (role === 'supplier' && currentEntity) return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
-      <SupplierPortalView supplier={currentEntity} products={products} onAddSupplierInvoice={handleAddSupplierInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
-    </div>
-  );
-
-  // ── 6. Distributor portal ───────────────────────────────────────
-  if (role === 'distributor' && currentEntity) return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans" dir="rtl">
-      <DistributorPortalView distributor={currentEntity} products={products} invoices={invoices} onAddInvoice={handleAddInvoice} onUpdateProductStock={handleUpdateProductStock} onLogout={handleLogout} />
-    </div>
-  );
-
-  // ── 7. Admin dashboard ──────────────────────────────────────────
+  // ── 8. Admin dashboard ──────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col md:flex-row font-sans" dir="rtl">
 

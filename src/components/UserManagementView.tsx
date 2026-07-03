@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  UserPlus, Trash2, RefreshCw, Eye, EyeOff,
+  UserPlus, RefreshCw, Eye, EyeOff,
   ShieldCheck, Truck, Users, Copy, CheckCheck,
   Loader2, AlertCircle, Mail, Lock, User, Phone,
-  Link2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -29,10 +28,6 @@ export default function UserManagementView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-
-  // Auto-link state
-  const [linkLoading, setLinkLoading] = useState(false);
-  const [linkResult, setLinkResult] = useState<string | null>(null);
 
   // Form state
   const [formEmail, setFormEmail] = useState('');
@@ -68,22 +63,6 @@ export default function UserManagementView() {
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!';
     return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  };
-
-  // ── Auto-link orphan accounts ────────────────────────────────
-  const handleAutoLink = async () => {
-    setLinkLoading(true);
-    setLinkResult(null);
-    try {
-      const { data, error: fnErr } = await supabase.functions.invoke('link-orphan-users', {});
-      if (fnErr) throw fnErr;
-      if (data?.error) throw new Error(data.error);
-      setLinkResult(data?.message || 'تم بنجاح');
-    } catch (e: any) {
-      setLinkResult(`خطأ: ${e.message}`);
-    } finally {
-      setLinkLoading(false);
-    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -127,45 +106,22 @@ export default function UserManagementView() {
           <button onClick={loadUsers} className="p-2 rounded-xl bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">
             <RefreshCw className="w-4 h-4 text-on-surface-variant" />
           </button>
-          {/* Auto-link button */}
-          <button
-            onClick={handleAutoLink}
-            disabled={linkLoading}
-            title="ربط الحسابات غير المرتبطة تلقائياً"
-            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-all shadow-md"
-          >
-            {linkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-            <span>ربط تلقائي</span>
-          </button>
           <button
             onClick={() => { setShowForm(true); setFormPassword(generatePassword()); setCreatedInfo(null); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-md"
           >
             <UserPlus className="w-4 h-4" />
-            <span>إضافة مستخدم</span>
+            <span>إضافة مستخدم (مورد/موزع)</span>
           </button>
         </div>
       </div>
-
-      {/* Auto-link result banner */}
-      {linkResult && (
-        <div className={`p-3 rounded-xl border text-sm font-bold flex items-center gap-2 ${
-          linkResult.startsWith('خطأ')
-            ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-        }`}>
-          {linkResult.startsWith('خطأ') ? <AlertCircle className="w-4 h-4" /> : <CheckCheck className="w-4 h-4" />}
-          <span>{linkResult}</span>
-          <button onClick={() => setLinkResult(null)} className="mr-auto text-xs opacity-60 hover:opacity-100">×</button>
-        </div>
-      )}
 
       {/* Success banner */}
       {createdInfo && (
         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-3">
           <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
             <CheckCheck className="w-4 h-4" />
-            <span>تم إنشاء الحساب بنجاح! أرسل هذه البيانات للمستخدم:</span>
+            <span>تم إنشاء الحساب بنجاح! سيتم ربطه تلقائياً بملف المورد/الموزع.</span>
           </div>
           <div className="bg-slate-950/40 rounded-xl p-3 font-mono text-xs text-slate-300 space-y-1">
             <div>📧 <span className="text-white">{createdInfo.email}</span></div>
@@ -251,7 +207,6 @@ export default function UserManagementView() {
         <div className="flex flex-col items-center gap-3 py-12 text-center">
           <AlertCircle className="w-8 h-8 text-rose-400" />
           <p className="text-rose-400 text-sm">{error}</p>
-          <p className="text-on-surface-variant text-xs max-w-sm">تأكد من تشغيل SQL Schema في Supabase وإنشاء جدول user_profiles</p>
         </div>
       ) : users.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
@@ -274,16 +229,14 @@ export default function UserManagementView() {
                   <div className="text-right">
                     <p className="text-sm font-bold text-on-surface">{u.name || '—'}</p>
                     <p className="text-xs text-on-surface-variant" dir="ltr">{u.email}</p>
-                    {u.phone && <p className="text-xs text-on-surface-variant" dir="ltr">{u.phone}</p>}
+                    {u.phone && <p className="text-[10px] text-on-surface-variant/60 font-mono mt-0.5">{u.phone}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${roleInfo.color}`}>
-                    {roleInfo.icon}<span>{roleInfo.label}</span>
-                  </span>
-                  <span className="text-[10px] text-on-surface-variant hidden md:block">
-                    {new Date(u.created_at).toLocaleDateString('ar-MA')}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black ${roleInfo.color}`}>
+                    {roleInfo.icon}
+                    <span>{roleInfo.label}</span>
+                  </div>
                 </div>
               </div>
             );

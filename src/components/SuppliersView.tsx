@@ -8,27 +8,21 @@ import {
   Receipt, 
   Calendar, 
   Barcode, 
-  Save, 
   Check,
   Search,
   CheckCircle,
   Clock,
   Briefcase,
-  Plus,
-  X,
-  Phone,
-  UserPlus
+  Phone
 } from 'lucide-react';
 import { Supplier, SupplierInvoice } from '../types';
-import { supabase } from '../lib/supabase';
 
 interface SuppliersViewProps {
   suppliers: Supplier[];
   onAddSupplierInvoice: (supplierId: string, invoice: SupplierInvoice) => void;
-  onAddSupplier: (newSup: { name: string; type: 'مورد' | 'موزع'; phone?: string }) => void;
 }
 
-export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSupplier }: SuppliersViewProps) {
+export default function SuppliersView({ suppliers, onAddSupplierInvoice }: SuppliersViewProps) {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(suppliers[0]?.id || '');
   const [filterPeriod, setFilterPeriod] = useState<'today' | 'week' | 'month'>('today');
 
@@ -41,17 +35,6 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
 
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
-
-  // States for adding a new supplier/distributor
-  const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
-  const [newSupName, setNewSupName] = useState('');
-  const [newSupType, setNewSupType] = useState<'مورد' | 'موزع'>('مورد');
-  const [newSupPhone, setNewSupPhone] = useState('');
-  const [newSupEmail, setNewSupEmail] = useState('');
-  const [newSupPassword, setNewSupPassword] = useState('');
-  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [addSupplierError, setAddSupplierError] = useState('');
-  const [addSupplierSuccess, setAddSupplierSuccess] = useState('');
 
   // Find currently selected supplier
   const selectedSupplier = useMemo(() => {
@@ -106,63 +89,6 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
     }, 4000);
   };
 
-  const handleCreateSupplier = async (e: FormEvent) => {
-    e.preventDefault();
-    setAddSupplierError('');
-    setAddSupplierSuccess('');
-
-    if (!newSupName.trim()) {
-      setAddSupplierError('يرجى إدخال اسم المورد أو الموزع');
-      return;
-    }
-
-    if (isCreatingAccount) {
-      if (!newSupEmail.trim() || !newSupPassword.trim()) {
-        setAddSupplierError('يرجى إدخال البريد الإلكتروني وكلمة السر للحساب');
-        return;
-      }
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('create-user', {
-          body: {
-            email: newSupEmail,
-            password: newSupPassword,
-            role: newSupType === 'مورد' ? 'supplier' : 'distributor',
-            name: newSupName,
-            phone: newSupPhone
-          }
-        });
-        
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        
-        setAddSupplierSuccess('تم إنشاء الحساب وملف الشريك بنجاح!');
-      } catch (err: any) {
-        setAddSupplierError(`خطأ: ${err.message}`);
-        return;
-      }
-    } else {
-      onAddSupplier({
-        name: newSupName,
-        type: newSupType,
-        phone: newSupPhone || undefined
-      });
-      setAddSupplierSuccess('تمت إضافة الجهة بنجاح!');
-    }
-
-    // Reset form
-    setNewSupName('');
-    setNewSupPhone('');
-    setNewSupEmail('');
-    setNewSupPassword('');
-    setIsCreatingAccount(false);
-    
-    setTimeout(() => {
-      setShowAddSupplierModal(false);
-      setAddSupplierSuccess('');
-    }, 1500);
-  };
-
   return (
     <div className="space-y-6">
       {/* Tab Title */}
@@ -183,17 +109,6 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
                 <Users className="w-5 h-5" />
                 <span>الموردين والموزعين</span>
               </h2>
-              <button
-                onClick={() => {
-                  setAddSupplierError('');
-                  setAddSupplierSuccess('');
-                  setShowAddSupplierModal(true);
-                }}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-secondary text-white rounded-xl text-xs font-bold hover:bg-secondary/90 transition-all shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>إضافة جديد</span>
-              </button>
             </div>
 
             <ul className="space-y-2">
@@ -237,6 +152,7 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
                 );
               })}
             </ul>
+            <p className="text-[10px] text-slate-400 mt-4 text-center italic">لإضافة مورد أو موزع جديد، انتقل إلى صفحة "المستخدمين"</p>
           </div>
 
           {/* Supplier Finance Summary */}
@@ -349,325 +265,135 @@ export default function SuppliersView({ suppliers, onAddSupplierInvoice, onAddSu
                   type="number"
                   value={quantity}
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 px-4 py-2.5 text-sm text-on-surface font-mono rounded-t-lg"
-                  min="1"
+                  className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 px-4 py-2.5 text-sm text-on-surface transition-colors rounded-t-lg font-bold"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-on-surface-variant">المبلغ الإجمالي (شامل الضريبة)</label>
+                <label className="text-xs font-bold text-on-surface-variant">إجمالي قيمة الفاتورة (شامل الضريبة)</label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-xs text-on-surface-variant font-bold">د.م.</span>
+                  <span className="absolute left-3.5 text-xs font-bold text-on-surface-variant">د.م.</span>
                   <input 
                     type="number"
                     step="0.01"
                     value={totalAmount}
                     onChange={(e) => setTotalAmount(e.target.value)}
-                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 px-4 py-2.5 pl-10 text-sm text-on-surface font-mono rounded-t-lg"
+                    className="w-full bg-surface-container-low border-0 border-b border-outline-variant focus:border-primary focus:ring-0 px-4 py-2.5 pl-12 text-sm text-on-surface font-bold transition-colors rounded-t-lg"
                     placeholder="0.00"
                   />
                 </div>
               </div>
 
-              {/* Status messages */}
               {formError && (
-                <p className="text-xs text-red-600 font-bold bg-red-50 p-3 rounded-lg border border-red-200 md:col-span-2">{formError}</p>
-              )}
-              {formSuccess && (
-                <p className="text-xs text-green-700 font-bold bg-green-50 p-3 rounded-lg border border-green-200 md:col-span-2">{formSuccess}</p>
+                <div className="md:col-span-2 p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold rounded-xl flex items-center gap-2">
+                  <X className="w-4 h-4" />
+                  {formError}
+                </div>
               )}
 
-              <div className="md:col-span-2 flex justify-end mt-2">
+              {formSuccess && (
+                <div className="md:col-span-2 p-3 bg-green-50 border border-green-100 text-green-700 text-xs font-bold rounded-xl flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  {formSuccess}
+                </div>
+              )}
+
+              <div className="md:col-span-2 pt-2">
                 <button 
                   type="submit"
-                  className="bg-primary hover:bg-primary/95 text-white font-bold text-xs px-6 py-2.5 rounded-full shadow-sm flex items-center gap-2 transition-colors duration-150"
+                  className="w-full py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/95 transition-all shadow-md flex items-center justify-center gap-2"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>حفظ وإضافة الفاتورة</span>
+                  <Briefcase className="w-4 h-4" />
+                  <span>حفظ فاتورة المورد</span>
                 </button>
               </div>
-
             </form>
           </div>
 
-          {/* Supplier Ledgers Reports Area */}
-          {selectedSupplier && (
-            <div className="bg-white border border-outline-variant rounded-2xl p-6 shadow-sm space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h3 className="text-base font-bold text-primary">فواتير ومعاملات المورد: {selectedSupplier.name}</h3>
-                
-                {/* Period filters */}
-                <div className="flex bg-surface-container p-1 rounded-xl">
-                  <button 
-                    onClick={() => setFilterPeriod('month')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      filterPeriod === 'month' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant'
+          {/* Recent Invoices for Selected Supplier */}
+          <div className="bg-white border border-outline-variant rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                <span>سجل فواتير المشتريات الأخيرة</span>
+              </h2>
+              
+              <div className="flex bg-surface-container-low p-1 rounded-xl">
+                {(['today', 'week', 'month'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setFilterPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      filterPeriod === p 
+                        ? 'bg-white text-primary shadow-sm' 
+                        : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
-                    هذا الشهر
+                    {p === 'today' ? 'اليوم' : p === 'week' ? 'الأسبوع' : 'الشهر'}
                   </button>
-                  <button 
-                    onClick={() => setFilterPeriod('week')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      filterPeriod === 'week' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant'
-                    }`}
-                  >
-                    هذا الأسبوع
-                  </button>
-                  <button 
-                    onClick={() => setFilterPeriod('today')}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      filterPeriod === 'today' ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant'
-                    }`}
-                  >
-                    اليوم
-                  </button>
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* List table */}
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-right border-collapse min-w-[550px]">
-                  <thead>
-                    <tr className="bg-surface-container-low text-on-surface-variant text-xs font-bold border-b border-outline-variant">
-                      <th className="p-3">رقم الفاتورة</th>
-                      <th className="p-3">تاريخ الاستلام</th>
-                      <th className="p-3">المنتجات والبيان</th>
-                      <th className="p-3">المبلغ الإجمالي</th>
-                      <th className="p-3">حالة الفاتورة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm text-on-surface divide-y divide-surface-container-highest">
-                    {selectedSupplier.invoices.map((inv) => (
-                      <tr 
-                        key={inv.id}
-                        className="border-b border-outline-variant hover:bg-surface-container-low transition-colors duration-100"
-                      >
-                        <td className="p-3 font-mono font-bold text-primary">{inv.id}</td>
-                        <td className="p-3 font-mono text-xs text-on-surface-variant">{inv.date}</td>
-                        <td className="p-3 font-semibold text-on-surface-variant">{inv.productsSummary}</td>
-                        <td className="p-3 font-mono font-bold">{inv.amount.toLocaleString()} د.م.</td>
-                        <td className="p-3">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+            <div className="overflow-x-auto">
+              <table className="w-full text-right">
+                <thead>
+                  <tr className="border-b border-surface-container text-on-surface-variant text-[10px] font-black uppercase tracking-wider">
+                    <th className="pb-3 pr-2">رقم الفاتورة</th>
+                    <th className="pb-3">التاريخ</th>
+                    <th className="pb-3">البيان / المنتجات</th>
+                    <th className="pb-3 text-left">المبلغ (د.م.)</th>
+                    <th className="pb-3 text-center">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-container">
+                  {selectedSupplier?.invoices?.length > 0 ? (
+                    selectedSupplier.invoices.map((inv) => (
+                      <tr key={inv.id} className="group hover:bg-surface-container-low/50 transition-colors">
+                        <td className="py-4 pr-2">
+                          <span className="text-xs font-mono font-bold text-primary">{inv.id}</span>
+                        </td>
+                        <td className="py-4">
+                          <div className="flex items-center gap-2 text-xs text-on-surface font-semibold">
+                            <Calendar className="w-3.5 h-3.5 text-outline-variant" />
+                            {inv.date}
+                          </div>
+                        </td>
+                        <td className="py-4 max-w-[200px]">
+                          <span className="text-xs text-on-surface-variant font-medium truncate block">{inv.productsSummary}</span>
+                        </td>
+                        <td className="py-4 text-left">
+                          <span className="text-sm font-bold text-primary" dir="ltr">{inv.amount.toLocaleString()}</span>
+                        </td>
+                        <td className="py-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-black ${
                             inv.status === 'مكتملة' 
-                              ? 'bg-green-100 text-green-700' 
-                              : 'bg-amber-100 text-amber-700'
+                              ? 'bg-green-50 text-green-700' 
+                              : 'bg-amber-50 text-amber-700'
                           }`}>
-                            {inv.status === 'مكتملة' ? (
-                              <>
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                <span>مكتملة</span>
-                              </>
-                            ) : (
-                              <>
-                                <Clock className="w-3.5 h-3.5" />
-                                <span>قيد المعالجة</span>
-                              </>
-                            )}
+                            {inv.status === 'مكتملة' ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {inv.status}
                           </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2 opacity-40">
+                          <Search className="w-8 h-8" />
+                          <span className="text-xs font-bold">لا توجد فواتير مسجلة لهذه الفترة</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
 
         </div>
-
       </div>
-
-      {/* 6. Add Supplier/Distributor Modal */}
-      <AnimatePresence>
-        {showAddSupplierModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAddSupplierModal(false)}
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs"
-            />
-            
-            {/* Modal Container */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-outline-variant z-10 text-right font-sans"
-            >
-              {/* Header */}
-              <div className="bg-primary text-white p-5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
-                    <UserPlus className="w-5 h-5 text-teal-300" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm">إضافة مورد أو موزع جديد</h3>
-                    <p className="text-[10px] text-white/70 mt-0.5">أدخل تفاصيل جهة التوريد أو التوزيع لبدء المعاملات</p>
-                  </div>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => setShowAddSupplierModal(false)}
-                  className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Form Body */}
-              <form onSubmit={handleCreateSupplier} className="p-6 space-y-4">
-                
-                {/* Alert message */}
-                {addSupplierError && (
-                  <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                    <span>{addSupplierError}</span>
-                  </div>
-                )}
-                {addSupplierSuccess && (
-                  <div className="p-3 bg-green-50 text-green-700 text-xs font-bold rounded-xl border border-green-100 flex items-center gap-2 animate-pulse">
-                    <Check className="w-4 h-4" />
-                    <span>{addSupplierSuccess}</span>
-                  </div>
-                )}
-
-                {/* Name */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">اسم المورد أو الموزع *</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="مثال: شركة الجزيرة للأجهزة الكهربائية"
-                    value={newSupName}
-                    onChange={(e) => setNewSupName(e.target.value)}
-                    className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-slate-50"
-                  />
-                </div>
-
-                {/* Type Selection */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">نوع جهة التعامل</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setNewSupType('مورد')}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                        newSupType === 'مورد'
-                          ? 'bg-blue-50/70 border-blue-500 text-blue-900 shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${newSupType === 'مورد' ? 'bg-blue-600' : 'bg-slate-300'}`}></span>
-                      <span>مورّد (مشتريات)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewSupType('موزع')}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                        newSupType === 'موزع'
-                          ? 'bg-amber-50/70 border-amber-500 text-amber-900 shadow-xs'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${newSupType === 'موزع' ? 'bg-amber-600' : 'bg-slate-300'}`}></span>
-                      <span>موزّع (مبيعات)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Phone */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">رقم الجوال / الهاتف (اختياري)</label>
-                  <div className="relative">
-                    <input 
-                      type="tel"
-                      placeholder="مثال: 0501234567"
-                      value={newSupPhone}
-                      onChange={(e) => setNewSupPhone(e.target.value)}
-                      className="w-full text-right pl-3 pr-10 py-2 border border-outline-variant rounded-xl text-xs font-mono font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-slate-50"
-                      dir="ltr"
-                    />
-                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none">
-                      <Phone className="w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Creation Toggle */}
-                <div className="pt-2 border-t border-slate-100">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      checked={isCreatingAccount} 
-                      onChange={(e) => setIsCreatingAccount(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                    />
-                    <span className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">إنشاء حساب دخول للمنصة (اختياري)</span>
-                  </label>
-                </div>
-
-                {isCreatingAccount && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    className="space-y-3 overflow-hidden"
-                  >
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 block">البريد الإلكتروني *</label>
-                      <input 
-                        type="email"
-                        required
-                        placeholder="user@example.com"
-                        value={newSupEmail}
-                        onChange={(e) => setNewSupEmail(e.target.value)}
-                        className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono focus:outline-none focus:border-primary bg-slate-50"
-                        dir="ltr"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 block">كلمة السر *</label>
-                      <input 
-                        type="password"
-                        required
-                        minLength={8}
-                        placeholder="********"
-                        value={newSupPassword}
-                        onChange={(e) => setNewSupPassword(e.target.value)}
-                        className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono focus:outline-none focus:border-primary bg-slate-50"
-                        dir="ltr"
-                      />
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Footer Buttons */}
-                <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
-                  <button 
-                    type="button"
-                    onClick={() => setShowAddSupplierModal(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all"
-                  >
-                    إلغاء
-                  </button>
-                  <button 
-                    type="submit"
-                    className="px-5 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>حفظ البيانات</span>
-                  </button>
-                </div>
-
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }

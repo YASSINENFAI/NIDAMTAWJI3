@@ -11,10 +11,10 @@ import {
   Calendar,
   X,
   CreditCard,
-  Hash,
-  ShoppingBag
+  FileSpreadsheet
 } from 'lucide-react';
 import { Invoice, InvoiceItem } from '../types';
+import { exportToExcel } from '../lib/export';
 
 interface SalesInvoicesViewProps {
   invoices: Invoice[];
@@ -27,7 +27,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
   const [previewFormat, setPreviewFormat] = useState<'A4' | 'thermal'>('A4');
   
   // Real-time Hardware Printer Listener states
-  const [isPrinterConnected, setIsPrinterConnected] = useState(true);
+  const [isPrinterConnected] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printStatusText, setPrintStatusText] = useState('جاهز');
   
@@ -64,6 +64,18 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     );
   }, [invoices, searchTerm]);
 
+  const handleExportExcel = () => {
+    const data = filteredInvoices.map(inv => ({
+      'رقم الفاتورة': inv.id,
+      'العميل': inv.customerName,
+      'التاريخ': inv.date,
+      'الإجمالي (د.م.)': inv.total,
+      'المتبقي (د.م.)': inv.balance,
+      'الحالة': inv.status
+    }));
+    exportToExcel(data, `Invoices_Export_${new Date().toISOString().split('T')[0]}`, 'Invoices');
+  };
+
   // Handles simulated printing and native hardware print trigger
   const handlePrint = () => {
     if (!selectedInvoice) return;
@@ -85,7 +97,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
           setIsPrinting(false);
           setPrintStatusText('جاهز');
           
-          // Trigger actual physical print command
           try {
             window.print();
           } catch (e) {
@@ -130,7 +141,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
       return;
     }
 
-    // Process items to include VAT 20% (Morocco Standard)
     const processedItems: InvoiceItem[] = validItems.map(item => {
       const subtotal = item.price * item.quantity;
       const tax = parseFloat((subtotal * 0.20).toFixed(2));
@@ -148,7 +158,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     const taxSum = processedItems.reduce((acc, item) => acc + item.tax, 0);
     const grandTotal = parseFloat((subtotalSum + taxSum).toFixed(2));
 
-    const newInvoiceId = (Math.floor(557 + Math.random() * 400)).toString();
+    const newInvoiceId = 'INV-' + Math.floor(100000 + Math.random() * 900000);
 
     const today = new Date().toISOString().split('T')[0];
     const due = new Date();
@@ -162,7 +172,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
       date: today,
       dueDate: dueDateStr,
       total: grandTotal,
-      balance: grandTotal, // Unpaid by default
+      balance: grandTotal, 
       status: 'مستحقة',
       items: processedItems
     };
@@ -171,7 +181,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     setSelectedInvoiceId(newInvoiceId);
     setShowAddModal(false);
 
-    // Reset Modal States
     setNewClient('');
     setNewClientVat('');
     setNewInvoiceItems([{ description: '', quantity: 1, price: 0 }]);
@@ -185,18 +194,26 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
           <h1 className="text-3xl font-bold text-primary">سجل الفواتير</h1>
           <p className="text-secondary text-sm mt-1">إدارة وتتبع وحالة جميع فواتير مبيعات الشركة والامتثال الضريبي المتكامل.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-primary text-white px-6 py-2.5 rounded-xl hover:bg-primary/95 transition-colors font-semibold flex items-center gap-2 shadow-sm w-full sm:w-auto justify-center"
-        >
-          <Plus className="w-5 h-5" />
-          <span>إنشاء فاتورة جديدة</span>
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button 
+            onClick={handleExportExcel}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-white border border-outline-variant text-on-surface px-4 py-2.5 rounded-xl hover:bg-surface-container-low transition-colors duration-200"
+          >
+            <span className="text-xs font-semibold">تصدير Excel</span>
+            <FileSpreadsheet className="w-4 h-4 text-[#1d6f42]" />
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="flex-1 sm:flex-initial bg-primary text-white px-6 py-2.5 rounded-xl hover:bg-primary/95 transition-colors font-semibold flex items-center gap-2 shadow-sm justify-center"
+          >
+            <Plus className="w-5 h-5" />
+            <span>إنشاء فاتورة</span>
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:hidden">
-        
         <div className="bg-white border border-outline-variant p-5 rounded-2xl flex items-center gap-4 ambient-shadow">
           <div className="bg-secondary-container text-on-secondary-container w-12 h-12 rounded-full flex items-center justify-center">
             <CreditCard className="w-5 h-5 text-primary" />
@@ -226,16 +243,11 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
             <div className="text-xl font-bold text-primary mt-1">{invoices.length} فاتورة</div>
           </div>
         </div>
-
       </div>
 
       {/* Main Table + Preview Layout */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start print:block print:w-full">
-        
-        {/* Left Side: Invoice Listing (2/3 width) */}
         <div className="xl:col-span-2 bg-white border border-outline-variant rounded-2xl overflow-hidden ambient-shadow flex flex-col print:hidden">
-          
-          {/* Table Toolbar */}
           <div className="p-4 border-b border-outline-variant flex flex-col sm:flex-row justify-between gap-4 bg-surface-container-low">
             <div className="relative w-full sm:w-72">
               <Search className="w-5 h-5 absolute right-3.5 top-2.5 text-on-surface-variant" />
@@ -249,7 +261,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
             </div>
           </div>
 
-          {/* Invoices List Table */}
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-right border-collapse min-w-[700px]">
               <thead>
@@ -333,391 +344,176 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
               </tbody>
             </table>
           </div>
-          
-          <div className="p-4 border-t border-outline-variant bg-surface-container-low text-xs text-on-surface-variant text-right">
-            عرض {filteredInvoices.length} من {invoices.length} فواتير مسجلة
-          </div>
-
         </div>
 
-        {/* Right Side: Print Preview Panel (1/3 width) */}
-        <div className="xl:col-span-1 bg-white border border-outline-variant rounded-2xl overflow-hidden ambient-shadow flex flex-col xl:sticky xl:top-24 max-h-[85vh] print:border-none print:shadow-none print:p-0 print:m-0 print:max-h-none print:static print:w-full print:bg-white">
-          
-          {/* Controls Header */}
-          <div className="p-4 border-b border-outline-variant bg-surface-container-low flex flex-col gap-3.5 print:hidden">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-primary flex items-center gap-2 text-sm">
-                <Printer className="w-4.5 h-4.5" />
-                <span>معاينة خيارات الطباعة</span>
-              </h3>
-              <span className="font-mono text-xs bg-primary text-white px-2.5 py-1 rounded-lg">#{selectedInvoice?.id || '---'}</span>
-            </div>
-
-            {/* Real-time Hardware Listener Bar */}
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-1.5 text-right">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-slate-500 font-medium">قناة طابعة الفواتير (ESC/POS)</span>
-                <span className="flex items-center gap-1.5 font-bold text-slate-800">
-                  <span className={`w-2 h-2 rounded-full ${isPrinterConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-                  {isPrinterConnected ? 'نشط وجاهز للطباعة' : 'غير متصل'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                <span>الاتصال: USB & Wi-Fi LAN</span>
-                <span>المستمع: 127.0.0.1:9100</span>
-              </div>
-            </div>
-
-            {/* Layout Toggle */}
-            <div className="flex bg-surface-container p-1 rounded-xl">
-              <button 
-                onClick={() => setPreviewFormat('A4')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-center ${
-                  previewFormat === 'A4' 
-                    ? 'bg-white text-primary shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                A4 (رسمي)
-              </button>
-              <button 
-                onClick={() => setPreviewFormat('thermal')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all text-center ${
-                  previewFormat === 'thermal' 
-                    ? 'bg-white text-primary shadow-sm' 
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                حراري (80mm)
-              </button>
-            </div>
-
-            <button 
-              onClick={handlePrint}
-              className="w-full bg-secondary hover:bg-secondary/90 text-white py-2.5 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-sm"
-            >
+        {/* Right Side: Print Preview Panel */}
+        <div className="xl:col-span-1 bg-white border border-outline-variant rounded-2xl overflow-hidden ambient-shadow flex flex-col xl:sticky xl:top-24 max-h-[85vh] print:border-none print:shadow-none print:p-0 print:m-0 print:max-h-none print:static">
+          <div className="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center print:hidden">
+            <h3 className="text-sm font-bold text-primary flex items-center gap-2">
               <Printer className="w-4 h-4" />
-              <span>إرسال أمر الطباعة المباشر</span>
-            </button>
+              <span>معاينة الطباعة</span>
+            </h3>
+            <div className="flex bg-white border border-outline-variant p-1 rounded-lg">
+              <button onClick={() => setPreviewFormat('A4')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${previewFormat === 'A4' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container'}`}>A4</button>
+              <button onClick={() => setPreviewFormat('thermal')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${previewFormat === 'thermal' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container'}`}>حراري</button>
+            </div>
           </div>
 
-          {/* Actual Invoice Content Container */}
-          <div className="flex-1 overflow-y-auto bg-surface-container p-4 flex justify-center custom-scrollbar relative print:p-0 print:m-0 print:bg-white print:overflow-visible print:block print:w-full">
-            
-            {/* Live Data Transfer/Printing Overlay */}
-            <AnimatePresence>
-              {isPrinting && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-primary/95 backdrop-blur-xs z-50 flex flex-col items-center justify-center p-6 text-center text-white"
-                >
-                  <div className="w-10 h-10 border-4 border-white/20 border-t-teal-400 rounded-full animate-spin mb-4" />
-                  <span className="font-bold text-xs block mb-1">{printStatusText}</span>
-                  <span className="text-[10px] text-teal-300">يتم بث حزم البيانات للطابعة الحرارية...</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar print:bg-white print:p-0 print:overflow-visible">
             {selectedInvoice ? (
-              previewFormat === 'A4' ? (
-                /* OFFICIAL A4 FORMAT */
-                <div className="bg-white shadow-xl w-full max-w-[210mm] p-6 text-[10px] text-on-surface relative border border-gray-100 rounded-xl space-y-4 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-none print:text-black print:text-xs">
-                  
-                  {/* Company Logo and Header info */}
-                  <div className="flex justify-between items-start border-b border-outline-variant pb-4">
-                    <div className="text-right space-y-1">
-                      <h2 className="text-sm font-bold text-primary">نظام السحاب المتكامل</h2>
-                      <p className="text-[9px] text-on-surface-variant">الدار البيضاء، المغرب</p>
-                      <p className="text-[9px] text-on-surface-variant">الرقم الضريبي: 300123456700003</p>
-                      <p className="text-[9px] text-on-surface-variant">هاتف: +212 5 22 34 56 78</p>
-                    </div>
-                    <div className="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant border border-dashed border-outline-variant">
-                      <Hash className="w-6 h-6 text-primary-fixed-dim" />
-                    </div>
+              <div className={`mx-auto bg-white shadow-xl print:shadow-none transition-all duration-300 ${previewFormat === 'A4' ? 'w-full aspect-[1/1.41] p-8' : 'w-72 p-4 text-[10px]'}`}>
+                <div className="flex justify-between items-start mb-8">
+                  <div className="text-right">
+                    <h2 className="text-xl font-black text-primary">فاتورة ضريبية</h2>
+                    <div className="text-xs font-mono text-on-surface-variant mt-1">#{selectedInvoice.id}</div>
                   </div>
-
-                  {/* Bill Details */}
-                  <div className="flex justify-between text-[9px] gap-4">
-                    <div className="space-y-1">
-                      <h1 className="text-xs font-bold text-primary mb-2">فاتورة ضريبية</h1>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-on-surface-variant">رقم الفاتورة:</span>
-                        <span className="font-mono font-bold">INV-2023-{selectedInvoice.id}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-on-surface-variant">تاريخ الإصدار:</span>
-                        <span>{selectedInvoice.date}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-on-surface-variant">تاريخ الاستحقاق:</span>
-                        <span>{selectedInvoice.dueDate}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-surface-container-low p-3 rounded-lg border border-outline-variant w-44 space-y-1">
-                      <h3 className="font-bold text-on-surface-variant border-b border-outline-variant pb-1">فوتر إلى:</h3>
-                      <p className="font-bold">{selectedInvoice.customerName}</p>
-                      <p className="text-[8px] text-on-surface-variant">الرقم الضريبي: {selectedInvoice.customerVat || '300000000000003'}</p>
-                    </div>
-                  </div>
-
-                  {/* Invoice items table */}
-                  <table className="w-full text-right text-[9px] border-collapse">
-                    <thead>
-                      <tr className="bg-surface-container-low border-y border-outline-variant text-[8px] font-bold">
-                        <th className="py-2 px-1 text-right">الوصف</th>
-                        <th className="py-2 px-1 text-center w-10">الكمية</th>
-                        <th className="py-2 px-1 text-left w-16">السعر</th>
-                        <th className="py-2 px-1 text-left w-16">الضريبة (20%)</th>
-                        <th className="py-2 px-1 text-left w-20">المجموع</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedInvoice.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="py-2 px-1 font-medium">{item.description}</td>
-                          <td className="py-2 px-1 text-center font-mono">{item.quantity}</td>
-                          <td className="py-2 px-1 text-left font-mono">{item.price.toFixed(2)}</td>
-                          <td className="py-2 px-1 text-left font-mono text-on-surface-variant">{item.tax.toFixed(2)}</td>
-                          <td className="py-2 px-1 text-left font-mono font-bold">{item.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-
-                  {/* Totals computation */}
-                  <div className="flex justify-end pt-2">
-                    <table className="w-44 text-right text-[9px] space-y-1">
-                      <tbody>
-                        <tr>
-                          <td className="py-1 text-on-surface-variant">المجموع الفرعي:</td>
-                          <td className="py-1 text-left font-mono">{(selectedInvoice.total - selectedInvoice.items.reduce((a, b) => a + b.tax, 0)).toFixed(2)} د.م.</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1 text-on-surface-variant border-b border-outline-variant pb-1">ضريبة القيمة المضافة:</td>
-                          <td className="py-1 text-left font-mono border-b border-outline-variant pb-1">{selectedInvoice.items.reduce((a, b) => a + b.tax, 0).toFixed(2)} د.م.</td>
-                        </tr>
-                        <tr className="font-bold text-primary">
-                          <td className="py-2">الإجمالي المستحق:</td>
-                          <td className="py-2 text-left font-mono text-sm">{selectedInvoice.total.toLocaleString()} د.م.</td>
-                        </tr>
-                        {selectedInvoice.balance > 0 && (
-                          <tr className="text-red-600 font-bold">
-                            <td className="py-1">المبلغ المتبقي:</td>
-                            <td className="py-1 text-left font-mono bg-red-50 px-1 rounded">{selectedInvoice.balance.toLocaleString()} د.م.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Bill Footer Note */}
-                  <div className="border-t border-outline-variant pt-3 text-center text-[8px] text-on-surface-variant leading-relaxed">
-                    <p>نشكر لكم اختياركم "نظام السحاب المتكامل". يرجى تسديد الديون لحساب الآيبان الضريبي المعتمد:</p>
-                    <p className="font-mono font-bold text-primary mt-1">SA00100000001234567890</p>
-                  </div>
-
+                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white font-black text-xl">S</div>
                 </div>
-              ) : (
-                /* THERMAL 80MM RECEIPT FORMAT */
-                <div className="bg-white shadow-xl w-[180px] p-4 text-[8px] text-on-surface font-mono border border-gray-100 rounded-xl flex flex-col items-center space-y-2 print:shadow-none print:border-none print:p-0 print:m-0 print:w-[80mm] print:text-black print:text-[10px]">
-                  <div className="text-center w-full space-y-0.5">
-                    <h2 className="text-[10px] font-bold">نظام السحاب المتكامل</h2>
-                    <p className="text-[7px]">الرقم الضريبي: 300123456700003</p>
-                    <p className="text-[7px]">هاتف: +212522345678</p>
+
+                <div className="grid grid-cols-2 gap-8 mb-8 text-right">
+                  <div>
+                    <div className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">العميل</div>
+                    <div className="text-sm font-bold">{selectedInvoice.customerName}</div>
+                    <div className="text-[10px] text-on-surface-variant mt-1">الرقم الضريبي: {selectedInvoice.customerVat}</div>
                   </div>
-                  
-                  <div className="border-b border-dashed border-on-surface w-full"></div>
-                  
-                  <div className="w-full text-[7px] space-y-0.5">
-                    <div className="flex justify-between"><span>رقم الفاتورة:</span><span>#INV-{selectedInvoice.id}</span></div>
-                    <div className="flex justify-between"><span>التاريخ:</span><span>{selectedInvoice.date} 14:30</span></div>
-                    <div className="flex justify-between"><span>العميل:</span><span>{selectedInvoice.customerName}</span></div>
+                  <div>
+                    <div className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">التاريخ</div>
+                    <div className="text-sm font-bold">{selectedInvoice.date}</div>
+                    <div className="text-[10px] text-on-surface-variant mt-1">تاريخ الاستحقاق: {selectedInvoice.dueDate}</div>
                   </div>
-                  
-                  <div className="border-b border-dashed border-on-surface w-full"></div>
-                  
-                  {/* Item rows */}
-                  <table className="w-full text-right text-[7px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-on-surface font-bold">
-                        <th className="py-1 text-right">الصنف</th>
-                        <th className="py-1 text-center">الكمية</th>
-                        <th className="py-1 text-left">المجموع</th>
+                </div>
+
+                <table className="w-full text-right mb-8">
+                  <thead>
+                    <tr className="border-b-2 border-primary text-[10px] font-black text-primary uppercase tracking-wider">
+                      <th className="pb-2">الوصف</th>
+                      <th className="pb-2 text-center">الكمية</th>
+                      <th className="pb-2 text-left">الإجمالي</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {selectedInvoice.items.map((item, idx) => (
+                      <tr key={idx} className="text-xs">
+                        <td className="py-3 font-medium">{item.description}</td>
+                        <td className="py-3 text-center">{item.quantity}</td>
+                        <td className="py-3 text-left font-bold">{item.total.toLocaleString()} د.م.</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {selectedInvoice.items.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="py-1 text-right break-words max-w-[80px]">{item.description}</td>
-                          <td className="py-1 text-center">{item.quantity}</td>
-                          <td className="py-1 text-left">{item.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    ))}
+                  </tbody>
+                </table>
 
-                  <div className="border-b border-dashed border-on-surface w-full"></div>
-
-                  <div className="w-full space-y-0.5 text-right">
-                    <div className="flex justify-between"><span>الإجمالي شامل الضريبة:</span><span className="font-bold">{selectedInvoice.total.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-[6px]"><span>ضريبة القيمة المضافة (20%):</span><span>{selectedInvoice.items.reduce((a, b) => a + b.tax, 0).toFixed(2)}</span></div>
-                    <div className="flex justify-between font-bold text-red-600"><span>المبلغ المستحق:</span><span>{selectedInvoice.balance.toFixed(2)}</span></div>
-                  </div>
-
-                  <div className="border-b border-dashed border-on-surface w-full"></div>
-                  
-                  <div className="text-center space-y-2 w-full pt-1">
-                    <p className="text-[6px]">نشكركم لتعاملكم معنا</p>
-                    <div className="w-12 h-12 bg-gray-100 border border-gray-200 mx-auto flex items-center justify-center rounded-lg text-[6px]">
-                      رمز QR الضريبي
+                <div className="flex justify-end">
+                  <div className="w-48 space-y-2">
+                    <div className="flex justify-between text-xs text-on-surface-variant">
+                      <span>المجموع الفرعي:</span>
+                      <span>{(selectedInvoice.total / 1.2).toLocaleString(undefined, {maximumFractionDigits: 2})} د.م.</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-on-surface-variant">
+                      <span>الضريبة (20%):</span>
+                      <span>{(selectedInvoice.total - (selectedInvoice.total / 1.2)).toLocaleString(undefined, {maximumFractionDigits: 2})} د.م.</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-black text-primary pt-2 border-t border-slate-200">
+                      <span>الإجمالي النهائي:</span>
+                      <span>{selectedInvoice.total.toLocaleString()} د.م.</span>
                     </div>
                   </div>
                 </div>
-              )
+              </div>
             ) : (
-              <div className="text-center text-xs text-on-surface-variant p-6">
-                يرجى تحديد فاتورة من القائمة للمعاينة
+              <div className="h-full flex flex-col items-center justify-center text-on-surface-variant space-y-4 py-20">
+                <FileText className="w-12 h-12 opacity-20" />
+                <p className="text-sm font-medium">يرجى اختيار فاتورة للمعاينة</p>
               </div>
             )}
           </div>
 
+          <div className="p-4 bg-white border-t border-outline-variant space-y-3 print:hidden">
+            <div className="flex items-center justify-between text-[10px]">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isPrinterConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="font-bold text-on-surface-variant">حالة الطابعة: {printStatusText}</span>
+              </div>
+              <span className="text-on-surface-variant font-mono">USB / IP: 192.168.1.44</span>
+            </div>
+            
+            <button 
+              onClick={handlePrint}
+              disabled={!selectedInvoice || isPrinting}
+              className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all ${
+                isPrinting 
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                  : 'bg-primary text-white hover:bg-primary/95 shadow-primary/20'
+              }`}
+            >
+              {isPrinting ? (
+                <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin"></div>
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              <span>{isPrinting ? 'جاري الطباعة...' : 'تأكيد وطباعة الفاتورة'}</span>
+            </button>
+          </div>
         </div>
-
       </div>
 
-      {/* Dynamic Invoice Creation Dialog Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 bg-primary/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto ambient-shadow border border-outline-variant p-6 flex flex-col gap-6"
-            >
-              {/* Modal Title */}
-              <div className="flex justify-between items-center border-b border-surface-container pb-4">
-                <h3 className="text-lg font-bold text-primary flex items-center gap-2">
-                  <ShoppingBag className="w-5 h-5" />
-                  <span>توليد فاتورة ضريبية جديدة</span>
-                </h3>
-                <button 
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="text-on-surface-variant hover:bg-surface-container p-1.5 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-primary p-6 text-white text-right relative flex-shrink-0">
+                <button onClick={() => setShowAddModal(false)} className="absolute left-6 top-6 text-white/70 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+                <h3 className="text-xl font-black">إنشاء فاتورة مبيعات جديدة 🧾</h3>
+                <p className="text-white/70 text-xs mt-1">أدخل بيانات العميل وبنود الفاتورة ليتم احتساب الضرائب تلقائياً.</p>
               </div>
-
-              {/* Form Body */}
-              <form onSubmit={handleCreateInvoice} className="space-y-4">
+              
+              <form onSubmit={handleCreateInvoice} className="flex-1 overflow-y-auto p-6 space-y-6 text-right custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1.5">اسم العميل أو المؤسسة المستفيدة</label>
-                    <input 
-                      type="text"
-                      value={newClient}
-                      onChange={(e) => setNewClient(e.target.value)}
-                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2 text-sm text-on-surface focus:border-primary outline-none"
-                      placeholder="مثل: شركة الرواد للتجارة والمقاولات"
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">اسم العميل *</label>
+                    <input type="text" value={newClient} onChange={e => setNewClient(e.target.value)} required placeholder="مثال: شركة التوريدات العامة" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1.5">الرقم الضريبي للعميل (اختياري)</label>
-                    <input 
-                      type="text"
-                      value={newClientVat}
-                      onChange={(e) => setNewClientVat(e.target.value)}
-                      className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-2 text-sm text-on-surface focus:border-primary outline-none font-mono"
-                      placeholder="300XXXXXXXXXXXX"
-                    />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">الرقم الضريبي (اختياري)</label>
+                    <input type="text" value={newClientVat} onChange={e => setNewClientVat(e.target.value)} placeholder="000000000000003" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
                   </div>
                 </div>
 
-                {/* Dynamic Item list generator */}
-                <div className="border-t border-surface-container pt-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h4 className="text-xs font-bold text-primary">بنود وخدمات الفاتورة</h4>
-                    <button 
-                      type="button"
-                      onClick={handleAddFormItem}
-                      className="text-xs font-bold text-primary hover:bg-primary-fixed-dim/20 px-3 py-1 rounded-lg transition-colors flex items-center gap-1 border border-outline-variant"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>إضافة بند صنف</span>
-                    </button>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-black text-primary">بنود الفاتورة</h4>
+                    <button type="button" onClick={handleAddFormItem} className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"><Plus className="w-3 h-3" /> إضافة بند</button>
                   </div>
-
+                  
                   <div className="space-y-3">
                     {newInvoiceItems.map((item, idx) => (
-                      <div key={idx} className="flex gap-3 items-end bg-surface-container-low p-3 rounded-xl border border-outline-variant">
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-on-surface-variant mb-1">وصف الصنف / الخدمة</label>
-                          <input 
-                            type="text"
-                            value={item.description}
-                            onChange={(e) => handleFormItemChange(idx, 'description', e.target.value)}
-                            className="w-full bg-white border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:border-primary outline-none"
-                            placeholder="مثل: ترخيص نظام سنوي أو صيانة خوادم"
-                          />
+                      <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col md:flex-row gap-3 items-end">
+                        <div className="flex-1 space-y-1.5 w-full">
+                          <label className="text-[9px] font-bold text-slate-400">الوصف</label>
+                          <input type="text" value={item.description} onChange={e => handleFormItemChange(idx, 'description', e.target.value)} placeholder="اسم المنتج أو الخدمة" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary" />
                         </div>
-                        <div className="w-20">
-                          <label className="block text-[10px] font-bold text-on-surface-variant mb-1">الكمية</label>
-                          <input 
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleFormItemChange(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
-                            className="w-full bg-white border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:border-primary outline-none font-mono"
-                            min="1"
-                          />
+                        <div className="w-full md:w-24 space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-400">الكمية</label>
+                          <input type="number" value={item.quantity} onChange={e => handleFormItemChange(idx, 'quantity', parseInt(e.target.value) || 0)} min="1" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary" />
                         </div>
-                        <div className="w-28">
-                          <label className="block text-[10px] font-bold text-on-surface-variant mb-1">السعر (د.م)</label>
-                          <input 
-                            type="number"
-                            value={item.price || ''}
-                            onChange={(e) => handleFormItemChange(idx, 'price', parseFloat(e.target.value) || 0)}
-                            className="w-full bg-white border border-outline-variant rounded-lg px-3 py-1.5 text-xs text-on-surface focus:border-primary outline-none font-mono"
-                            placeholder="0.00"
-                          />
+                        <div className="w-full md:w-32 space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-400">السعر (قبل الضريبة)</label>
+                          <input type="number" value={item.price} onChange={e => handleFormItemChange(idx, 'price', parseFloat(e.target.value) || 0)} step="0.01" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary" />
                         </div>
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoveFormItem(idx)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        {newInvoiceItems.length > 1 && (
+                          <button type="button" onClick={() => handleRemoveFormItem(idx)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><X className="w-4 h-4" /></button>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {modalError && (
-                  <p className="text-xs text-red-600 font-bold bg-red-50 p-3 rounded-lg border border-red-200">{modalError}</p>
-                )}
-
-                {/* Actions Footer */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-surface-container mt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="border border-outline-variant px-5 py-2 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container-low transition-colors"
-                  >
-                    إلغاء الأمر
-                  </button>
-                  <button 
-                    type="submit"
-                    className="bg-primary hover:bg-primary/95 text-white px-6 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
-                  >
-                    تأكيد وحفظ الفاتورة
-                  </button>
-                </div>
+                {modalError && <div className="p-3 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-xl border border-rose-100">{modalError}</div>}
               </form>
+
+              <div className="p-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-3 flex-shrink-0">
+                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-3 border border-slate-300 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all">إلغاء</button>
+                <button onClick={handleCreateInvoice} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all">حفظ وإصدار الفاتورة</button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 import {
   fetchProducts, insertProduct, deleteProduct, updateProductStock,
   fetchInvoices, insertInvoice,
@@ -32,17 +33,55 @@ export function useData() {
     }
   }, []);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { 
+    loadAll(); 
+
+    // Subscribe to real-time changes
+    const productsSub = supabase
+      .channel('public:products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        fetchProducts().then(setProducts);
+      })
+      .subscribe();
+
+    const invoicesSub = supabase
+      .channel('public:invoices')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, () => {
+        fetchInvoices().then(setInvoices);
+      })
+      .subscribe();
+
+    const partnersSub = supabase
+      .channel('public:partners')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partners' }, () => {
+        fetchPartners().then(setSuppliers);
+      })
+      .subscribe();
+
+    const partnerInvoicesSub = supabase
+      .channel('public:partner_invoices')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partner_invoices' }, () => {
+        fetchPartners().then(setSuppliers);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(productsSub);
+      supabase.removeChannel(invoicesSub);
+      supabase.removeChannel(partnersSub);
+      supabase.removeChannel(partnerInvoicesSub);
+    };
+  }, [loadAll]);
 
   // Product actions
   const handleAddProduct = async (newProd: Omit<Product, 'id'>) => {
     const created = await insertProduct(newProd);
-    setProducts((prev) => [created, ...prev]);
+    // Optimistic update handled by Realtime
   };
 
   const handleDeleteProduct = async (id: string) => {
     await deleteProduct(id);
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    // Optimistic update handled by Realtime
   };
 
   const handleUpdateProductStock = async (productId: string, quantityChange: number) => {
@@ -50,37 +89,24 @@ export function useData() {
     if (!product) return;
     const newStock = Math.max(0, product.stock + quantityChange);
     await updateProductStock(productId, newStock);
-    setProducts((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, stock: newStock } : p))
-    );
+    // Optimistic update handled by Realtime
   };
 
   // Invoice actions
   const handleAddInvoice = async (newInvoice: Invoice) => {
     await insertInvoice(newInvoice);
-    setInvoices((prev) => [newInvoice, ...prev]);
+    // Optimistic update handled by Realtime
   };
 
   // Partner actions
   const handleAddSupplier = async (newSup: { name: string; type: 'مورد' | 'موزع'; phone?: string }) => {
-    const created = await insertPartner(newSup);
-    setSuppliers((prev) => [...prev, created]);
+    await insertPartner(newSup);
+    // Optimistic update handled by Realtime
   };
 
   const handleAddSupplierInvoice = async (supplierId: string, newBill: SupplierInvoice) => {
     await insertPartnerInvoice(supplierId, newBill);
-    setSuppliers((prev) =>
-      prev.map((sup) => {
-        if (sup.id === supplierId) {
-          return {
-            ...sup,
-            totalEarned: sup.totalEarned + newBill.amount,
-            invoices: [newBill, ...sup.invoices],
-          };
-        }
-        return sup;
-      })
-    );
+    // Optimistic update handled by Realtime
   };
 
   return {

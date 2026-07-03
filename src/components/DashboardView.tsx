@@ -27,26 +27,27 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
   const stockShortages = products.filter(p => p.stock <= 5).length;
   const totalSalesEstimate = invoices.reduce((acc, inv) => acc + inv.total, 0);
   const outstandingDebts = invoices.filter(inv => inv.status === 'مستحقة').reduce((acc, inv) => acc + inv.balance, 0);
+  const totalProfit = totalSalesEstimate * 0.15; // Rough estimate of 15% margin
 
   const handleExport = (type: 'excel' | 'pdf') => {
     if (type === 'excel') {
       const exportData = [
-        { 'المؤشر': 'إجمالي المبيعات اليومية', 'القيمة': fmtMAD(totalSalesEstimate || 12500) },
-        { 'المؤشر': 'الأرباح المقدرة', 'القيمة': fmtMAD(2300) },
-        { 'المؤشر': 'جرد المخزون', 'القيمة': totalProducts.toLocaleString('ar-MA') },
-        { 'المؤشر': 'الديون القائمة', 'القيمة': fmtMAD(outstandingDebts || 5000) },
+        { 'المؤشر': 'إجمالي المبيعات اليومية', 'القيمة': fmtMAD(totalSalesEstimate) },
+        { 'المؤشر': 'الأرباح المقدرة', 'القيمة': fmtMAD(totalProfit) },
+        { 'المؤشر': 'جرد المخزون الإجمالي', 'القيمة': totalProducts.toLocaleString('ar-MA') },
+        { 'المؤشر': 'الديون القائمة', 'القيمة': fmtMAD(outstandingDebts) },
       ];
       exportToExcel(exportData, `Sahab_ERP_Summary_${new Date().toISOString().split('T')[0]}`, 'Summary');
       setShowNotification('تم تصدير ملف Excel بنجاح وجاري التحميل...');
     } else {
-      const columns = ['Indicator', 'Value'];
+      const columns = ['المؤشر', 'القيمة'];
       const data = [
-        ['Total Daily Sales', fmtMAD(totalSalesEstimate || 12500)],
-        ['Estimated Profit', fmtMAD(2300)],
-        ['Inventory Count', totalProducts.toLocaleString('ar-MA')],
-        ['Outstanding Debts', fmtMAD(outstandingDebts || 5000)],
+        ['إجمالي المبيعات اليومية', fmtMAD(totalSalesEstimate)],
+        ['الأرباح المقدرة', fmtMAD(totalProfit)],
+        ['جرد المخزون الإجمالي', totalProducts.toLocaleString('ar-MA')],
+        ['الديون القائمة', fmtMAD(outstandingDebts)],
       ];
-      exportToPDF(columns, data, `Sahab_ERP_Report_${new Date().toISOString().split('T')[0]}`, 'Financial Summary Report');
+      exportToPDF(columns, data, `Sahab_ERP_Report_${new Date().toISOString().split('T')[0]}`, 'تقرير الملخص المالي');
       setShowNotification('تم إنشاء تقرير PDF المالي بنجاح وبانتظار الطباعة...');
     }
     setTimeout(() => setShowNotification(null), 4000);
@@ -94,7 +95,7 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
           </div>
           <div>
             <h3 className="text-xs text-on-surface-variant mb-1 font-medium">المبيعات اليومية</h3>
-            <div className="text-2xl font-bold text-on-surface">{fmtMAD(totalSalesEstimate || 12500)}</div>
+            <div className="text-2xl font-bold text-on-surface">{fmtMAD(totalSalesEstimate)}</div>
           </div>
         </motion.div>
 
@@ -106,7 +107,7 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
           </div>
           <div>
             <h3 className="text-xs text-on-surface-variant mb-1 font-medium">الأرباح والخسائر المقدرة</h3>
-            <div className="text-2xl font-bold text-green-700">{fmtMAD(2300)}</div>
+            <div className="text-2xl font-bold text-green-700">{fmtMAD(totalProfit)}</div>
           </div>
         </motion.div>
 
@@ -120,7 +121,7 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
           </div>
           <div>
             <h3 className="text-xs text-on-surface-variant mb-1 font-medium">جرد المخزون الإجمالي</h3>
-            <div className="text-2xl font-bold text-on-surface">{(totalProducts || 450).toLocaleString('ar-MA')} <span className="text-sm font-medium text-on-surface-variant">عنصر</span></div>
+            <div className="text-2xl font-bold text-on-surface">{(totalProducts).toLocaleString('ar-MA')} <span className="text-sm font-medium text-on-surface-variant">عنصر</span></div>
           </div>
         </motion.div>
 
@@ -132,7 +133,7 @@ export default function DashboardView({ products, invoices, onNavigate }: Dashbo
           </div>
           <div>
             <h3 className="text-xs text-on-surface-variant mb-1 font-medium">الديون القائمة (فواتير مستحقة)</h3>
-            <div className="text-2xl font-bold text-red-600">{fmtMAD(outstandingDebts || 5000)}</div>
+            <div className="text-2xl font-bold text-red-600">{fmtMAD(outstandingDebts)}</div>
           </div>
         </motion.div>
       </div>

@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Users, Search, Calendar, TrendingUp, FileText, Plus, CheckCircle,
-  AlertCircle, Clock, ChevronLeft, Smartphone, Check, X, PlusCircle,
-  ShoppingBag, CreditCard, UserPlus, TrendingDown
+  Users, Search, Calendar, TrendingUp, FileText, PlusCircle, 
+  ChevronLeft, Smartphone, CreditCard, TrendingDown
 } from 'lucide-react';
 import { Product, Supplier, Invoice } from '../types';
 import { fmtMAD } from '../lib/currency';
@@ -14,11 +13,10 @@ interface DistributorsReportViewProps {
   invoices: Invoice[];
   onAddInvoice: (newInvoice: Invoice) => void;
   onUpdateProductStock: (productId: string, quantityChange: number) => void;
-  onAddSupplier: (newSup: { name: string; type: 'مورد' | 'موزع'; phone?: string }) => void;
 }
 
 export default function DistributorsReportView({
-  distributors, products, invoices, onAddInvoice, onUpdateProductStock, onAddSupplier
+  distributors, products, invoices, onAddInvoice, onUpdateProductStock
 }: DistributorsReportViewProps) {
   const [selectedDistributorId, setSelectedDistributorId] = useState<string>(distributors[0]?.id || '');
   const [filterPeriod, setFilterPeriod] = useState<'today' | 'week' | 'month'>('month');
@@ -27,11 +25,6 @@ export default function DistributorsReportView({
   const [saisieQty, setSaisieQty] = useState<number>(0);
   const [saisieSuccess, setSaisieSuccess] = useState('');
   const [saisieError, setSaisieError] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newDistName, setNewDistName] = useState('');
-  const [newDistPhone, setNewDistPhone] = useState('');
-  const [addDistError, setAddDistError] = useState('');
-  const [addDistSuccess, setAddDistSuccess] = useState('');
 
   const selectedDistributor = useMemo(() => distributors.find(d => d.id === selectedDistributorId) || distributors[0], [distributors, selectedDistributorId]);
   const selectedDistributorInvoices = useMemo(() => !selectedDistributor ? [] : invoices.filter(inv => inv.customerName === selectedDistributor.name), [invoices, selectedDistributor]);
@@ -86,23 +79,34 @@ export default function DistributorsReportView({
     const product = products.find(p => p.id === saisieProductId);
     if (!product) { setSaisieError('المنتج غير متوفر.'); return; }
     if (saisieQty > product.stock) { setSaisieError(`الكمية (${saisieQty}) تفوق المتوفر (${product.stock}).`); return; }
-    const total = saisieQty * product.sellPrice * 1.20;
+    
+    // Moroccan VAT 20%
+    const taxRate = 0.20;
+    const itemTotal = saisieQty * product.sellPrice * (1 + taxRate);
     const invoiceId = 'SAISIE-' + Math.floor(100000 + Math.random() * 900000);
-    onAddInvoice({ id: invoiceId, customerName: selectedDistributor.name, customerVat: '300123456700003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (تفريغ مبيعات مناديب)`, quantity: saisieQty, price: product.sellPrice, tax: 20, total }] });
+    
+    onAddInvoice({ 
+      id: invoiceId, 
+      customerName: selectedDistributor.name, 
+      customerVat: '300123456700003', 
+      date: new Date().toISOString().split('T')[0], 
+      dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0], 
+      total: itemTotal, 
+      balance: itemTotal, 
+      status: 'مستحقة', 
+      items: [{ 
+        description: `${product.name} (تفريغ مبيعات مناديب)`, 
+        quantity: saisieQty, 
+        price: product.sellPrice, 
+        tax: 20, 
+        total: itemTotal 
+      }] 
+    });
+    
     onUpdateProductStock(product.id, -saisieQty);
     setSaisieSuccess(`تم تسجيل الفاتورة ${invoiceId} بنجاح!`);
     setSaisieProductId(''); setSaisieQty(0);
     setTimeout(() => { setShowSaisieModal(false); setSaisieSuccess(''); }, 2500);
-  };
-
-  const handleCreateDistributor = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddDistError(''); setAddDistSuccess('');
-    if (!newDistName.trim()) { setAddDistError('يرجى كتابة اسم الموزع.'); return; }
-    onAddSupplier({ name: newDistName, type: 'موزع', phone: newDistPhone || undefined });
-    setAddDistSuccess('تم تسجيل الموزع بنجاح!');
-    setNewDistName(''); setNewDistPhone('');
-    setTimeout(() => { setShowAddModal(false); setAddDistSuccess(''); }, 2000);
   };
 
   return (
@@ -113,9 +117,6 @@ export default function DistributorsReportView({
           <p className="text-slate-500 text-sm mt-1">تتبع تقارير مبيعات المناديب، وسحب البضائع وتفريغ فواتير المبيعات اليومية (Saisie) للهاتف.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowAddModal(true)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-slate-200">
-            <UserPlus className="w-4 h-4" /><span>تسجيل موزع جديد</span>
-          </button>
           <button onClick={() => { if (selectedDistributorId) setShowSaisieModal(true); else alert('الرجاء اختيار موزع أولاً'); }} className="px-5 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all">
             <PlusCircle className="w-4 h-4" /><span>تفريغ فواتير المبيعات (Saisie)</span>
           </button>
@@ -175,6 +176,7 @@ export default function DistributorsReportView({
                 );
               })}
             </div>
+            <p className="text-[10px] text-slate-400 mt-4 text-center italic">لتسجيل موزع جديد، انتقل إلى صفحة "المستخدمين"</p>
           </div>
 
           <div className="bg-gradient-to-br from-indigo-950 to-slate-900 text-white p-5 rounded-2xl shadow-lg space-y-3.5 text-right">
@@ -226,142 +228,84 @@ export default function DistributorsReportView({
                   <span className="text-lg font-black text-slate-900 block">{selectedPeriodStats.count} فواتير</span>
                 </div>
                 <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-xl space-y-1 text-right">
-                  <span className="text-[10px] text-amber-600 font-bold block">المستحق الحالي بذمته</span>
-                  <span className="text-lg font-black text-rose-600 block">{fmtMAD(selectedPeriodStats.outstanding)}</span>
+                  <span className="text-[10px] text-amber-600 font-bold block">إجمالي الذمم (مستحق)</span>
+                  <span className="text-lg font-black text-amber-700 block">{fmtMAD(selectedPeriodStats.outstanding)}</span>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-bold text-slate-900 text-xs">كشف فواتير الفترة ({filterPeriod === 'today' ? 'اليوم' : filterPeriod === 'week' ? 'الأسبوع' : 'الشهر'})</h4>
-                  <span className="text-[10px] text-slate-400 font-semibold">تحديث مستمر</span>
-                </div>
-                <div className="overflow-x-auto border border-slate-100 rounded-xl">
-                  {filteredPeriodInvoices.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-xs">لا توجد فواتير مفرغة لهذا الموزع في هذه الفترة.</div>
-                  ) : (
-                    <table className="w-full text-right border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
-                          <th className="py-2.5 px-4">رقم الفاتورة</th>
-                          <th className="py-2.5 px-4">التاريخ</th>
-                          <th className="py-2.5 px-4">البيان</th>
-                          <th className="py-2.5 px-4">القيمة</th>
-                          <th className="py-2.5 px-4 text-center">الحالة</th>
+              <div className="space-y-4">
+                <h3 className="text-xs font-black text-slate-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" /><span>سجل العمليات المفرغة (Saisie)</span>
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right">
+                    <thead>
+                      <tr className="text-[10px] font-black text-slate-400 border-b border-slate-100 uppercase tracking-widest">
+                        <th className="pb-3 pr-2">رقم العملية</th>
+                        <th className="pb-3">التاريخ</th>
+                        <th className="pb-3">البيان</th>
+                        <th className="pb-3 text-left">المبلغ</th>
+                        <th className="pb-3 text-center">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {filteredPeriodInvoices.map(inv => (
+                        <tr key={inv.id} className="text-xs hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3.5 pr-2 font-mono font-bold text-slate-900">{inv.id}</td>
+                          <td className="py-3.5 text-slate-500">{inv.date}</td>
+                          <td className="py-3.5 text-slate-600 font-medium">{inv.items[0]?.description || 'تفريغ مبيعات'}</td>
+                          <td className="py-3.5 text-left font-black text-slate-900">{fmtMAD(inv.total)}</td>
+                          <td className="py-3.5 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${inv.status === 'مكتملة' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                              {inv.status}
+                            </span>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {filteredPeriodInvoices.map(inv => (
-                          <tr key={inv.id} className="hover:bg-slate-50/50">
-                            <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{inv.id}</td>
-                            <td className="py-2.5 px-4 text-slate-500 font-mono">{inv.date}</td>
-                            <td className="py-2.5 px-4 text-slate-700 max-w-[150px] truncate">{inv.items[0]?.description || 'مبيعات مناديب'}</td>
-                            <td className="py-2.5 px-4 font-bold text-slate-900">{fmtMAD(inv.total)}</td>
-                            <td className="py-2.5 px-4 text-center">
-                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${inv.status === 'مدفوعة' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>{inv.status}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                      ))}
+                      {filteredPeriodInvoices.length === 0 && (
+                        <tr><td colSpan={5} className="py-10 text-center text-slate-400 text-[10px] font-bold italic">لا توجد عمليات مفرغة في هذه الفترة</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="p-12 text-center bg-white border border-slate-100 rounded-2xl text-slate-400 text-xs font-bold">الرجاء تحديد موزع لعرض تقاريره.</div>
+            <div className="h-64 bg-white border border-outline-variant rounded-2xl flex flex-col items-center justify-center gap-3 text-slate-400 shadow-sm">
+              <Users className="w-10 h-10 opacity-20" />
+              <span className="text-xs font-bold">يرجى اختيار موزع لعرض تقاريره</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Saisie Modal */}
       <AnimatePresence>
         {showSaisieModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowSaisieModal(false)} className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-outline-variant z-10 text-right font-sans">
-              <div className="bg-primary text-white p-5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center"><ShoppingBag className="w-5 h-5 text-teal-300" /></div>
-                  <div>
-                    <h3 className="font-bold text-sm">تفريغ فواتير المبيعات (Saisie) 📝</h3>
-                    <p className="text-[10px] text-white/70 mt-0.5">تسجيل مبيعات الموزع: {selectedDistributor?.name}</p>
-                  </div>
-                </div>
-                <button type="button" onClick={() => setShowSaisieModal(false)} className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-white"><X className="w-5 h-5" /></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+              <div className="bg-slate-900 p-6 text-white text-right relative">
+                <button onClick={() => setShowSaisieModal(false)} className="absolute left-6 top-6 text-slate-400 hover:text-white transition-colors"><ChevronLeft className="w-6 h-6 rotate-180" /></button>
+                <h3 className="text-xl font-black">تفريغ فواتير المبيعات 📝</h3>
+                <p className="text-slate-400 text-xs mt-1">تسجيل المبيعات التي تمت بواسطة الموزع {selectedDistributor?.name}</p>
               </div>
-              <form onSubmit={handleSaisieSubmit} className="p-6 space-y-4">
-                {saisieError && <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{saisieError}</span></div>}
-                {saisieSuccess && <div className="p-3 bg-green-50 text-green-700 text-xs font-bold rounded-xl border border-green-100 flex items-center gap-2"><CheckCircle className="w-4 h-4 shrink-0" /><span>{saisieSuccess}</span></div>}
+              <form onSubmit={handleSaisieSubmit} className="p-6 space-y-4 text-right">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">اختر صنف المبيعات *</label>
-                  <select value={saisieProductId} onChange={e => setSaisieProductId(e.target.value)} required className="w-full bg-slate-50 border border-outline-variant rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-primary">
-                    <option value="">-- اختر من المخزن المركزي --</option>
-                    {products.map(p => <option key={p.id} value={p.id} disabled={p.stock === 0}>{p.name} ({p.stock} متاح) - {fmtMAD(p.sellPrice)}/حبة</option>)}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">المنتج المباع</label>
+                  <select value={saisieProductId} onChange={e => setSaisieProductId(e.target.value)} required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all">
+                    <option value="">اختر المنتج...</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name} (متوفر: {p.stock})</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">الكمية المباعة *</label>
-                  <input type="number" required min="1" placeholder="مثال: 12" value={saisieQty || ''} onChange={e => setSaisieQty(parseInt(e.target.value) || 0)} className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold bg-slate-50 focus:outline-none focus:border-primary" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">الكمية المباعة</label>
+                  <input type="number" value={saisieQty} onChange={e => setSaisieQty(Number(e.target.value))} required min="1"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
                 </div>
-                {saisieProductId && (
-                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-500">
-                      <span>سعر البيع:</span>
-                      <span className="font-bold text-slate-800">{fmtMAD(products.find(p => p.id === saisieProductId)?.sellPrice || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>ضريبة القيمة المضافة (15%):</span>
-                      <span className="font-bold text-slate-800">{fmtMAD(((products.find(p => p.id === saisieProductId)?.sellPrice || 0) * saisieQty) * 0.15)}</span>
-                    </div>
-                    <hr className="border-slate-200" />
-                    <div className="flex justify-between font-bold text-primary text-sm">
-                      <span>إجمالي:</span>
-                      <span className="font-black font-mono">{fmtMAD(((products.find(p => p.id === saisieProductId)?.sellPrice || 0) * saisieQty) * 1.15)}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
-                  <button type="button" onClick={() => setShowSaisieModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold">إلغاء</button>
-                  <button type="submit" className="px-5 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"><Check className="w-4 h-4" /><span>تسجيل ومزامنة الفاتورة</span></button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Add Distributor Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowAddModal(false)} className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-outline-variant z-10 text-right font-sans">
-              <div className="bg-primary text-white p-5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center"><UserPlus className="w-5 h-5 text-teal-300" /></div>
-                  <div>
-                    <h3 className="font-bold text-sm">تسجيل موزع / مندوب جديد</h3>
-                    <p className="text-[10px] text-white/70 mt-0.5">تسجيل بيانات موزع لإصدار فواتير من الجوال</p>
-                  </div>
-                </div>
-                <button type="button" onClick={() => setShowAddModal(false)} className="p-1.5 rounded-full hover:bg-white/10 transition-colors text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <form onSubmit={handleCreateDistributor} className="p-6 space-y-4">
-                {addDistError && <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100">{addDistError}</div>}
-                {addDistSuccess && <div className="p-3 bg-green-50 text-green-700 text-xs font-bold rounded-xl border border-green-100">{addDistSuccess}</div>}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">اسم المندوب / الموزع *</label>
-                  <input type="text" required placeholder="مثال: عادل المطيري" value={newDistName} onChange={e => setNewDistName(e.target.value)} className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-medium focus:outline-none focus:border-primary bg-slate-50" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">رقم الجوال *</label>
-                  <input type="tel" required placeholder="مثال: +212 6 00 11 22 33" value={newDistPhone} onChange={e => setNewDistPhone(e.target.value)} className="w-full text-left px-3 py-2 border border-outline-variant rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-primary bg-slate-50" dir="ltr" />
-                </div>
-                <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold">إلغاء</button>
-                  <button type="submit" className="px-5 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold shadow-md">حفظ وتسجيل الموزع</button>
-                </div>
+                {saisieError && <div className="p-3 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-xl border border-rose-100">{saisieError}</div>}
+                {saisieSuccess && <div className="p-3 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-xl border border-emerald-100">{saisieSuccess}</div>}
+                <button type="submit" className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all">تأكيد وتسجيل العملية</button>
               </form>
             </motion.div>
           </div>

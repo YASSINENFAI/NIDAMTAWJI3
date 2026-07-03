@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Boxes, ShoppingBag, CheckCircle, LogOut, History, Plus, Truck, X,
-  CreditCard, DollarSign, Search, AlertCircle, Smartphone, Check,
-  PlusCircle, FileText, User, ListPlus, Send, Trash2
+  Search, Smartphone, Check,
+  PlusCircle, FileText, Send, Trash2
 } from 'lucide-react';
-import { Product, Supplier, Invoice, InvoiceItem } from '../types';
+import { Product, Supplier, Invoice } from '../types';
 import { fmtMAD, fmtMADFull } from '../lib/currency';
 import { exportToExcel } from '../lib/export';
 
@@ -50,8 +50,27 @@ export default function DistributorPortalView({
     const product = products.find(p => p.id === saisieProductId);
     if (!product) { setSaisieError('المنتج غير متوفر.'); return; }
     if (saisieQty > product.stock) { setSaisieError(`الكمية (${saisieQty}) تتجاوز المخزون (${product.stock}).`); return; }
-    const total = saisieQty * product.sellPrice * 1.20;
-    setDailyBatchInvoices(prev => [...prev, { customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, status: 'مستحقة', items: [{ description: `${product.name} (مبيعات التجزئة للعميل: ${saisieCustomerName})`, quantity: saisieQty, price: product.sellPrice, tax: 20, total }] }]);
+    
+    // Moroccan VAT 20%
+    const taxRate = 0.20;
+    const itemTotal = saisieQty * product.sellPrice * (1 + taxRate);
+    
+    setDailyBatchInvoices(prev => [...prev, { 
+      customerName: distributor.name, 
+      customerVat: '300998877100003', 
+      date: new Date().toISOString().split('T')[0], 
+      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], 
+      total: itemTotal, 
+      status: 'مستحقة', 
+      items: [{ 
+        description: `${product.name} (مبيعات التجزئة للعميل: ${saisieCustomerName})`, 
+        quantity: saisieQty, 
+        price: product.sellPrice, 
+        tax: 20, 
+        total: itemTotal 
+      }] 
+    }]);
+    
     setSaisieProductId(''); setSaisieQty(0); setSaisieCustomerName('');
     setSaisieSuccess('تمت إضافة الفاتورة للدفعة بنجاح!');
     setTimeout(() => setSaisieSuccess(''), 3000);
@@ -81,9 +100,30 @@ export default function DistributorPortalView({
     if (!product) { setErrorMsg('المنتج غير موجود.'); return; }
     if (orderQty <= 0) { setErrorMsg('الرجاء إدخال كمية صحيحة.'); return; }
     if (orderQty > product.stock) { setErrorMsg(`الكمية (${orderQty}) تتجاوز المخزون (${product.stock}).`); return; }
-    const total = orderQty * product.sellPrice * 1.20;
+    
+    // Moroccan VAT 20%
+    const taxRate = 0.20;
+    const itemTotal = orderQty * product.sellPrice * (1 + taxRate);
     const invoiceId = 'INV-DIST-' + Math.floor(100000 + Math.random() * 900000);
-    onAddInvoice({ id: invoiceId, customerName: distributor.name, customerVat: '300998877100003', date: new Date().toISOString().split('T')[0], dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], total, balance: total, status: 'مستحقة', items: [{ description: `${product.name} (سحب بضائع)`, quantity: orderQty, price: product.sellPrice, tax: 20, total }] });
+    
+    onAddInvoice({ 
+      id: invoiceId, 
+      customerName: distributor.name, 
+      customerVat: '300998877100003', 
+      date: new Date().toISOString().split('T')[0], 
+      dueDate: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0], 
+      total: itemTotal, 
+      balance: itemTotal, 
+      status: 'مستحقة', 
+      items: [{ 
+        description: `${product.name} (سحب بضائع)`, 
+        quantity: orderQty, 
+        price: product.sellPrice, 
+        tax: 20, 
+        total: itemTotal 
+      }] 
+    });
+    
     onUpdateProductStock(product.id, -orderQty);
     setSuccessMsg('تم تسجيل الفاتورة بنجاح!');
     setSelectedProductId(''); setOrderQty(0);
@@ -198,13 +238,13 @@ export default function DistributorPortalView({
                           <div className="p-6 text-center text-slate-500 text-[10px] bg-slate-950/40 border border-white/5 rounded-2xl">سجل التفريغ فارغ.</div>
                         ) : (
                           <div className="space-y-2">
-                            {dailyBatchInvoices.map((binv, idx) => (
-                              <div key={idx} className="p-3 bg-slate-950 border border-white/5 rounded-xl flex justify-between items-center">
+                            {dailyBatchInvoices.map((inv, i) => (
+                              <div key={i} className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
                                 <div className="text-right">
-                                  <span className="text-xs font-bold block text-white">{binv.items[0].description.split('(')[0]}</span>
-                                  <span className="text-[9px] text-teal-400 font-bold block">كم: {binv.items[0].quantity} • {fmtMAD(binv.total)}</span>
+                                  <div className="text-[10px] font-bold text-white">{inv.items[0].description.split(':')[1]?.trim() || 'عميل مجهول'}</div>
+                                  <div className="text-[9px] text-slate-500">{inv.items[0].quantity}x • {fmtMAD(inv.total)}</div>
                                 </div>
-                                <button onClick={() => handleRemoveFromBatch(idx)} className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleRemoveFromBatch(i)} className="text-rose-500 p-1.5 hover:bg-rose-500/10 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             ))}
                           </div>
@@ -215,170 +255,168 @@ export default function DistributorPortalView({
 
                   {activeSubTab === 'history' && (
                     <div className="space-y-3">
-                      <span className="text-[10.5px] font-bold text-slate-400 block px-1">كشف المسحوبات</span>
-                      {distributorInvoices.length === 0 ? (
-                        <div className="p-8 text-center text-slate-500 text-[10px]">لا توجد فواتير.</div>
-                      ) : (
-                        <div className="space-y-2">
-                          {distributorInvoices.map(inv => (
-                            <div key={inv.id} className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-2 text-right">
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold text-teal-300 font-mono">{inv.id}</span>
-                                <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded ${inv.status === 'مدفوعة' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'}`}>{inv.status}</span>
-                              </div>
-                              <p className="text-[10px] text-slate-300 font-semibold">{inv.items[0]?.description || 'توزيع بضائع'}</p>
-                              <div className="flex justify-between items-center pt-1 border-t border-white/5 text-[9px] text-slate-400">
-                                <span className="font-mono">{inv.date}</span>
-                                <span className="font-bold text-white text-xs">{fmtMAD(inv.total)}</span>
-                              </div>
-                            </div>
-                          ))}
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-[10.5px] font-bold text-slate-400">الفواتير التي تم رفعها ({distributorInvoices.length})</span>
+                      </div>
+                      {distributorInvoices.map(inv => (
+                        <div key={inv.id} className="bg-slate-950/60 p-3 rounded-xl border border-white/5 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-mono text-teal-400">{inv.id}</span>
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${inv.status === 'مكتملة' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>{inv.status}</span>
+                          </div>
+                          <div className="text-[10px] font-bold text-white">{inv.items[0]?.description || 'عملية سحب'}</div>
+                          <div className="flex justify-between items-center pt-1 border-t border-white/5">
+                            <span className="text-[9px] text-slate-500">{inv.date}</span>
+                            <span className="text-[10px] font-black text-white">{fmtMAD(inv.total)}</span>
+                          </div>
                         </div>
-                      )}
+                      ))}
+                      {distributorInvoices.length === 0 && <div className="p-8 text-center text-slate-500 text-[10px]">لا يوجد سجل فواتير.</div>}
                     </div>
                   )}
 
                   {activeSubTab === 'inventory' && (
                     <div className="space-y-3">
-                      <span className="text-[10.5px] font-bold text-slate-400 block px-1">المخزون المركزي</span>
-                      <div className="space-y-2">
-                        {products.map(p => (
-                          <div key={p.id} className="p-3 bg-slate-950 border border-white/5 rounded-xl flex justify-between items-center text-right">
-                            <div>
-                              <span className="text-xs font-bold text-white block">{p.name}</span>
-                              <span className="text-[9px] text-slate-400 block mt-0.5">سعر التجزئة: {fmtMAD(p.sellPrice)}</span>
-                            </div>
-                            <div className="text-left">
-                              <span className="text-[9px] text-slate-500 block">المتاح</span>
-                              <span className={`text-[11px] font-bold block ${p.stock === 0 ? 'text-red-400' : 'text-teal-400'}`}>{p.stock} حبة</span>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="bg-slate-950/60 p-3 rounded-xl border border-white/5 flex items-center gap-2 mb-2">
+                        <Search className="w-3.5 h-3.5 text-slate-500" />
+                        <input type="text" placeholder="بحث في المخزن..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="bg-transparent border-none text-[10px] text-white focus:ring-0 w-full text-right" />
                       </div>
+                      {filteredProducts.map(p => (
+                        <div key={p.id} className="bg-slate-950/60 p-3 rounded-xl border border-white/5 flex justify-between items-center">
+                          <div className="text-right">
+                            <div className="text-[10px] font-bold text-white">{p.name}</div>
+                            <div className="text-[9px] text-slate-500">{fmtMAD(p.sellPrice)} للوحدة</div>
+                          </div>
+                          <div className="text-left">
+                            <div className={`text-[10px] font-black ${p.stock <= 5 ? 'text-rose-400' : 'text-teal-400'}`}>{p.stock} متاح</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-                <div className="p-2 bg-slate-950/90 text-center text-[9px] text-slate-500 border-t border-white/5">تم التحديث تلقائياً • اتصال مشفر</div>
+                <div className="bg-slate-950 p-2.5 border-t border-white/5 flex justify-center">
+                  <div className="w-24 h-1 bg-slate-800 rounded-full" />
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        <div className={`space-y-6 ${isMobileEmulator ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white border border-outline-variant p-5 rounded-2xl flex items-center justify-between shadow-xs">
-              <div className="space-y-1 text-right">
-                <span className="text-slate-400 text-xs font-bold block">إجمالي المسحوبات والمبيعات</span>
-                <span className="text-2xl font-black text-slate-900 block">{fmtMAD(totalPurchased)}</span>
-                <span className="text-[10px] text-slate-400 block">شامل ضريبة القيمة المضافة 15%</span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600"><Boxes className="w-6 h-6" /></div>
-            </div>
-            <div className="bg-white border border-outline-variant p-5 rounded-2xl flex items-center justify-between shadow-xs">
-              <div className="space-y-1 text-right">
-                <span className="text-slate-400 text-xs font-bold block">الذمم والمديونية المستحقة</span>
-                <span className="text-2xl font-black text-rose-600 block">{fmtMAD(totalOutstanding)}</span>
-                <span className="text-[10px] text-amber-600 block">يرجى تسوية المديونيات</span>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600"><CreditCard className="w-6 h-6" /></div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-outline-variant rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div className={`${isMobileEmulator ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-6`}>
+          <div className="bg-white border border-outline-variant rounded-2xl p-6 ambient-shadow space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="text-right">
-                <h3 className="font-bold text-slate-900 text-sm">تفاصيل العمليات المزامنة</h3>
-                <span className="text-[10px] text-slate-500 block mt-0.5">كشف حركة الفواتير</span>
+                <h2 className="text-xl font-black text-slate-900">الملخص المالي للمندوب 📊</h2>
+                <p className="text-xs text-slate-500 mt-0.5">متابعة المبيعات والديون المستحقة لـ {distributor.name}</p>
               </div>
-              <button onClick={() => setShowOrderModal(true)} className="px-4 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                <Plus className="w-4 h-4" /><span>طلب سحب بضاعة (يدوي)</span>
+              <button onClick={() => setShowOrderModal(true)} className="px-5 py-2.5 bg-primary text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all">
+                <PlusCircle className="w-4 h-4" /><span>طلب سحب بضائع جديد</span>
               </button>
             </div>
-            <div className="overflow-x-auto">
-              {distributorInvoices.length === 0 ? (
-                <div className="p-10 text-center text-slate-400 text-xs">لا توجد فواتير بعد.</div>
-              ) : (
-                <table className="w-full text-right border-collapse text-xs">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-right relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-1 h-full bg-teal-500" />
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">إجمالي المسحوبات</span>
+                <span className="text-2xl font-black text-slate-900 block">{fmtMAD(totalPurchased)}</span>
+                <div className="flex items-center gap-1.5 text-[9px] text-teal-600 font-bold mt-1">
+                  <CheckCircle className="w-3 h-3" /><span>فواتير مسجلة في النظام</span>
+                </div>
+              </div>
+              <div className="p-5 bg-rose-50/50 border border-rose-100 rounded-2xl space-y-2 text-right relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-1 h-full bg-rose-500" />
+                <span className="text-[10px] text-rose-400 font-bold uppercase tracking-widest block">الذمم المستحقة (الآجل)</span>
+                <span className="text-2xl font-black text-rose-600 block">{fmtMAD(totalOutstanding)}</span>
+                <div className="flex items-center gap-1.5 text-[9px] text-rose-500 font-bold mt-1">
+                  <History className="w-3 h-3" /><span>يجب تسويتها مع المدير العام</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" /><span>آخر الفواتير المسجلة</span>
+                </h3>
+                {distributorInvoices.length > 0 && (
+                  <button 
+                    onClick={() => {
+                      const data = distributorInvoices.map(inv => ({
+                        'رقم الفاتورة': inv.id,
+                        'التاريخ': inv.date,
+                        'البيان': inv.items[0]?.description || 'سحب بضائع',
+                        'الإجمالي': inv.total,
+                        'الحالة': inv.status
+                      }));
+                      exportToExcel(data, `Distributor_Invoices_${distributor.name}_${new Date().toISOString().split('T')[0]}`, 'Invoices');
+                    }}
+                    className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    <span>تصدير السجل لـ Excel</span>
+                  </button>
+                )}
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
-                      <th className="py-2.5 px-4">رقم الفاتورة</th>
-                      <th className="py-2.5 px-4">تاريخ الرفع</th>
-                      <th className="py-2.5 px-4">بيان التوزيع</th>
-                      <th className="py-2.5 px-4">المبلغ (شامل الضريبة)</th>
-                      <th className="py-2.5 px-4 text-center">الحالة</th>
+                    <tr className="text-[10px] font-black text-slate-400 border-b border-slate-100 uppercase tracking-widest">
+                      <th className="pb-3 pr-2">رقم الفاتورة</th>
+                      <th className="pb-3">التاريخ</th>
+                      <th className="pb-3">البيان</th>
+                      <th className="pb-3 text-left">المبلغ</th>
+                      <th className="pb-3 text-center">الحالة</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {distributorInvoices.map(inv => (
-                      <tr key={inv.id} className="hover:bg-slate-50/40">
-                        <td className="py-2.5 px-4 font-mono font-bold text-slate-900">{inv.id}</td>
-                        <td className="py-2.5 px-4 text-slate-500 font-mono">{inv.date}</td>
-                        <td className="py-2.5 px-4 text-slate-700 font-semibold max-w-[200px] truncate">{inv.items[0]?.description}</td>
-                        <td className="py-2.5 px-4 font-black text-slate-950">{fmtMAD(inv.total)}</td>
-                        <td className="py-2.5 px-4 text-center">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold ${inv.status === 'مدفوعة' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{inv.status}</span>
+                  <tbody className="divide-y divide-slate-50">
+                    {distributorInvoices.slice(0, 10).map(inv => (
+                      <tr key={inv.id} className="text-xs hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 pr-2 font-mono font-bold text-slate-900">{inv.id}</td>
+                        <td className="py-4 text-slate-500">{inv.date}</td>
+                        <td className="py-4 text-slate-600 font-medium">{inv.items[0]?.description || 'سحب بضائع'}</td>
+                        <td className="py-4 text-left font-black text-slate-900">{fmtMAD(inv.total)}</td>
+                        <td className="py-4 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${inv.status === 'مكتملة' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                            {inv.status}
+                          </span>
                         </td>
                       </tr>
                     ))}
+                    {distributorInvoices.length === 0 && (
+                      <tr><td colSpan={5} className="py-12 text-center text-slate-400 text-[10px] font-bold italic">لا توجد فواتير مسجلة حالياً</td></tr>
+                    )}
                   </tbody>
                 </table>
-              )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Order Modal */}
       <AnimatePresence>
         {showOrderModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowOrderModal(false)} className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-outline-variant z-10 text-right font-sans">
-              <div className="bg-primary text-white p-5 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center"><ShoppingBag className="w-5 h-5 text-teal-300" /></div>
-                  <div>
-                    <h3 className="font-bold text-sm">سحب بضائع جديدة</h3>
-                    <p className="text-[10px] text-white/70 mt-0.5">طلب من المستودع</p>
-                  </div>
-                </div>
-                <button type="button" onClick={() => setShowOrderModal(false)} className="p-1.5 rounded-full hover:bg-white/10 text-white"><X className="w-5 h-5" /></button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden">
+              <div className="bg-slate-900 p-6 text-white text-right relative">
+                <button onClick={() => setShowOrderModal(false)} className="absolute left-6 top-6 text-slate-400 hover:text-white transition-colors"><X className="w-6 h-6" /></button>
+                <h3 className="text-xl font-black">طلب سحب بضائع 📦</h3>
+                <p className="text-slate-400 text-xs mt-1">قم باختيار المنتجات التي تريد سحبها من المخزن المركزي.</p>
               </div>
-              <form onSubmit={handleCreateOrder} className="p-6 space-y-4">
-                {errorMsg && <div className="p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-100 flex items-center gap-2"><AlertCircle className="w-4 h-4" />{errorMsg}</div>}
-                {successMsg && <div className="p-3 bg-green-50 text-green-700 text-xs font-bold rounded-xl border border-green-100 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{successMsg}</div>}
+              <form onSubmit={handleCreateOrder} className="p-6 space-y-4 text-right">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">اختر المنتج *</label>
-                  <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)} required className="w-full bg-slate-50 border border-outline-variant rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-primary">
-                    <option value="">-- اختر من المستودع --</option>
-                    {products.map(p => <option key={p.id} value={p.id} disabled={p.stock === 0}>{p.name} ({p.stock} وحدة)</option>)}
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">المنتج المطلوب</label>
+                  <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all">
+                    <option value="">اختر المنتج...</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name} (متوفر: {p.stock})</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">الكمية *</label>
-                  <input type="number" required min="1" placeholder="مثال: 15" value={orderQty || ''} onChange={e => setOrderQty(parseInt(e.target.value) || 0)} className="w-full text-right px-3 py-2 border border-outline-variant rounded-xl text-xs font-bold bg-slate-50 focus:outline-none focus:border-primary" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">الكمية المطلوبة</label>
+                  <input type="number" value={orderQty} onChange={e => setOrderQty(Number(e.target.value))} required min="1" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-all" />
                 </div>
-                {selectedProductId && orderQty > 0 && (
-                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-2 text-xs text-slate-500">
-                    <div className="flex justify-between">
-                      <span>سعر البيع:</span>
-                      <span className="font-bold text-slate-800">{fmtMAD(products.find(p => p.id === selectedProductId)?.sellPrice || 0)} / وحدة</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>ضريبة 15%:</span>
-                      <span className="font-bold text-slate-800">{fmtMAD(((products.find(p => p.id === selectedProductId)?.sellPrice || 0) * orderQty) * 0.15)}</span>
-                    </div>
-                    <hr className="border-slate-200" />
-                    <div className="flex justify-between font-bold text-primary">
-                      <span>إجمالي الفاتورة:</span>
-                      <span className="text-sm font-black font-mono text-slate-900">{fmtMAD(((products.find(p => p.id === selectedProductId)?.sellPrice || 0) * orderQty) * 1.15)}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="flex gap-3 justify-end pt-3 border-t border-slate-100">
-                  <button type="button" onClick={() => setShowOrderModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold">إلغاء</button>
-                  <button type="submit" className="px-5 py-2 bg-primary text-white hover:bg-primary/95 rounded-xl text-xs font-bold shadow-md">تأكيد سحب البضاعة</button>
-                </div>
+                {errorMsg && <div className="p-3 bg-rose-50 text-rose-600 text-[10px] font-bold rounded-xl border border-rose-100">{errorMsg}</div>}
+                {successMsg && <div className="p-3 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-xl border border-emerald-100">{successMsg}</div>}
+                <button type="submit" className="w-full py-4 bg-primary text-white rounded-2xl font-black text-sm shadow-lg shadow-primary/20 hover:bg-primary/95 transition-all">تأكيد الطلب</button>
               </form>
             </motion.div>
           </div>

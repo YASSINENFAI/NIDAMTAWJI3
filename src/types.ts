@@ -1,4 +1,4 @@
-export type ActiveTab = 'dashboard' | 'inventory' | 'sales' | 'suppliers' | 'distributors';
+export type ActiveTab = 'dashboard' | 'inventory' | 'sales' | 'suppliers' | 'distributors' | 'users';
 
 export interface Product {
   id: string;
@@ -8,7 +8,7 @@ export interface Product {
   barcode: string;
   buyPrice: number;
   sellPrice: number;
-  profitMargin: number; // percentage
+  profitMargin: number;
   imageUrl?: string;
 }
 

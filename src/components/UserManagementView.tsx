@@ -3,6 +3,7 @@ import {
   UserPlus, Trash2, RefreshCw, Eye, EyeOff,
   ShieldCheck, Truck, Users, Copy, CheckCheck,
   Loader2, AlertCircle, Mail, Lock, User, Phone,
+  Link2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -29,6 +30,10 @@ export default function UserManagementView() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
+  // Auto-link state
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkResult, setLinkResult] = useState<string | null>(null);
+
   // Form state
   const [formEmail, setFormEmail] = useState('');
   const [formPassword, setFormPassword] = useState('');
@@ -45,7 +50,6 @@ export default function UserManagementView() {
     setLoading(true);
     setError(null);
     try {
-      // Load from user_profiles table (created by trigger on auth.users)
       const { data, error: err } = await supabase
         .from('user_profiles')
         .select('*')
@@ -66,24 +70,32 @@ export default function UserManagementView() {
     return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   };
 
+  // ── Auto-link orphan accounts ────────────────────────────────
+  const handleAutoLink = async () => {
+    setLinkLoading(true);
+    setLinkResult(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('link-orphan-users', {});
+      if (fnErr) throw fnErr;
+      if (data?.error) throw new Error(data.error);
+      setLinkResult(data?.message || 'تم بنجاح');
+    } catch (e: any) {
+      setLinkResult(`خطأ: ${e.message}`);
+    } finally {
+      setLinkLoading(false);
+    }
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setFormLoading(true);
     try {
-      // 1. Create user via Supabase Admin API (Edge Function)
       const { data: fnData, error: fnErr } = await supabase.functions.invoke('create-user', {
-        body: {
-          email: formEmail,
-          password: formPassword,
-          role: formRole,
-          name: formName,
-          phone: formPhone,
-        },
+        body: { email: formEmail, password: formPassword, role: formRole, name: formName, phone: formPhone },
       });
       if (fnErr) throw fnErr;
       if (fnData?.error) throw new Error(fnData.error);
-
       setCreatedInfo({ email: formEmail, password: formPassword });
       setFormEmail(''); setFormPassword(''); setFormName(''); setFormPhone('');
       setShowForm(false);
@@ -115,6 +127,16 @@ export default function UserManagementView() {
           <button onClick={loadUsers} className="p-2 rounded-xl bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">
             <RefreshCw className="w-4 h-4 text-on-surface-variant" />
           </button>
+          {/* Auto-link button */}
+          <button
+            onClick={handleAutoLink}
+            disabled={linkLoading}
+            title="ربط الحسابات غير المرتبطة تلقائياً"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold disabled:opacity-60 transition-all shadow-md"
+          >
+            {linkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+            <span>ربط تلقائي</span>
+          </button>
           <button
             onClick={() => { setShowForm(true); setFormPassword(generatePassword()); setCreatedInfo(null); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-md"
@@ -124,6 +146,19 @@ export default function UserManagementView() {
           </button>
         </div>
       </div>
+
+      {/* Auto-link result banner */}
+      {linkResult && (
+        <div className={`p-3 rounded-xl border text-sm font-bold flex items-center gap-2 ${
+          linkResult.startsWith('خطأ')
+            ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+        }`}>
+          {linkResult.startsWith('خطأ') ? <AlertCircle className="w-4 h-4" /> : <CheckCheck className="w-4 h-4" />}
+          <span>{linkResult}</span>
+          <button onClick={() => setLinkResult(null)} className="mr-auto text-xs opacity-60 hover:opacity-100">×</button>
+        </div>
+      )}
 
       {/* Success banner */}
       {createdInfo && (
@@ -152,7 +187,6 @@ export default function UserManagementView() {
         <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-4">
           <h3 className="font-bold text-on-surface text-sm">إنشاء حساب جديد</h3>
           <form onSubmit={handleCreateUser} className="space-y-3">
-            {/* Role */}
             <div className="grid grid-cols-2 gap-2">
               {(['supplier', 'distributor'] as const).map((r) => (
                 <button key={r} type="button" onClick={() => setFormRole(r)}
@@ -164,27 +198,22 @@ export default function UserManagementView() {
                 </button>
               ))}
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Name */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><User className="w-3 h-3" />الاسم</label>
                 <input value={formName} onChange={e => setFormName(e.target.value)} required placeholder="اسم المورد أو الموزع"
                   className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
-              {/* Phone */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</label>
                 <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="0600000000" dir="ltr"
                   className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
-              {/* Email */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Mail className="w-3 h-3" />البريد الإلكتروني</label>
                 <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} required placeholder="user@example.com" dir="ltr"
                   className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
-              {/* Password */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Lock className="w-3 h-3" />كلمة السر</label>
                 <div className="relative">
@@ -197,13 +226,11 @@ export default function UserManagementView() {
                 <button type="button" onClick={() => setFormPassword(generatePassword())} className="text-[10px] text-primary hover:underline">توليد كلمة سر تلقائية</button>
               </div>
             </div>
-
             {formError && (
               <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" /><span>{formError}</span>
               </div>
             )}
-
             <div className="flex gap-2 justify-end pt-1">
               <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors">إلغاء</button>
               <button type="submit" disabled={formLoading} className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-60 transition-all">

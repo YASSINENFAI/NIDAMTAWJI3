@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard,
@@ -29,7 +29,45 @@ import SupplierPortalView from './components/SupplierPortalView';
 import DistributorPortalView from './components/DistributorPortalView';
 import DistributorsReportView from './components/DistributorsReportView';
 
-export default function App() {
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4 p-6 text-white" dir="rtl">
+          <h1 className="text-xl font-bold text-rose-500">حدث خطأ غير متوقع</h1>
+          <pre className="bg-slate-900 p-4 rounded-xl text-xs overflow-auto max-w-full">
+            {this.state.error?.message}
+          </pre>
+          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-teal-500 rounded-xl">إعادة التحميل</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
   // PWA

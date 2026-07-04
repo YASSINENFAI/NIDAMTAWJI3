@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Invoice, InvoiceItem } from '../types';
 import { exportToExcel } from '../lib/export';
+import { generateUniqueId } from '../lib/id';
 
 interface SalesInvoicesViewProps {
   invoices: Invoice[];
@@ -25,11 +26,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>(invoices[1]?.id || invoices[0]?.id || '');
   const [previewFormat, setPreviewFormat] = useState<'A4' | 'thermal'>('A4');
-  
-  // Real-time Hardware Printer Listener states
-  const [isPrinterConnected] = useState(true);
-  const [isPrinting, setIsPrinting] = useState(false);
-  const [printStatusText, setPrintStatusText] = useState('جاهز');
   
   // Modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -76,35 +72,12 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     exportToExcel(data, `Invoices_Export_${new Date().toISOString().split('T')[0]}`, 'Invoices');
   };
 
-  // Handles simulated printing and native hardware print trigger
+  // Triggers the browser's native print dialog for the selected invoice.
+  // (There is no real hardware printer integration in this app — it simply
+  // prints the on-screen invoice preview, same as Ctrl+P.)
   const handlePrint = () => {
     if (!selectedInvoice) return;
-    if (!isPrinterConnected) {
-      alert('خطأ في الاتصال: طابعة الفواتير غير متصلة بالنظام حالياً.');
-      return;
-    }
-
-    setIsPrinting(true);
-    setPrintStatusText('جاري الاتصال بقناة الطباعة الحرارية...');
-    
-    setTimeout(() => {
-      setPrintStatusText('جاري نقل البيانات الضريبية المشفرة لرمز الاستجابة السريع QR...');
-      
-      setTimeout(() => {
-        setPrintStatusText('جاري تلقيم الورق والطباعة الآن...');
-        
-        setTimeout(() => {
-          setIsPrinting(false);
-          setPrintStatusText('جاهز');
-          
-          try {
-            window.print();
-          } catch (e) {
-            console.warn('Native printer output blocked inside sandbox iframe.', e);
-          }
-        }, 1200);
-      }, 1000);
-    }, 800);
+    window.print();
   };
 
   // Add Item row in creation form
@@ -158,7 +131,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     const taxSum = processedItems.reduce((acc, item) => acc + item.tax, 0);
     const grandTotal = parseFloat((subtotalSum + taxSum).toFixed(2));
 
-    const newInvoiceId = 'INV-' + Math.floor(100000 + Math.random() * 900000);
+    const newInvoiceId = generateUniqueId('INV');
 
     const today = new Date().toISOString().split('T')[0];
     const due = new Date();
@@ -168,7 +141,7 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
     const newInvoice: Invoice = {
       id: newInvoiceId,
       customerName: newClient,
-      customerVat: newClientVat || '300000000000003',
+      customerVat: newClientVat.trim() || undefined,
       date: today,
       dueDate: dueDateStr,
       total: grandTotal,
@@ -260,7 +233,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
               />
             </div>
           </div>
-
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-right border-collapse min-w-[700px]">
               <thead>
@@ -358,7 +330,6 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
               <button onClick={() => setPreviewFormat('thermal')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${previewFormat === 'thermal' ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container'}`}>حراري</button>
             </div>
           </div>
-
           <div className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar print:bg-white print:p-0 print:overflow-visible">
             {selectedInvoice ? (
               <div className={`mx-auto bg-white shadow-xl print:shadow-none transition-all duration-300 ${previewFormat === 'A4' ? 'w-full aspect-[1/1.41] p-8' : 'w-72 p-4 text-[10px]'}`}>
@@ -374,7 +345,9 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
                   <div>
                     <div className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">العميل</div>
                     <div className="text-sm font-bold">{selectedInvoice.customerName}</div>
-                    <div className="text-[10px] text-on-surface-variant mt-1">الرقم الضريبي: {selectedInvoice.customerVat}</div>
+                    {selectedInvoice.customerVat && (
+                      <div className="text-[10px] text-on-surface-variant mt-1">الرقم الضريبي: {selectedInvoice.customerVat}</div>
+                    )}
                   </div>
                   <div>
                     <div className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">التاريخ</div>
@@ -428,29 +401,13 @@ export default function SalesInvoicesView({ invoices, onAddInvoice }: SalesInvoi
           </div>
 
           <div className="p-4 bg-white border-t border-outline-variant space-y-3 print:hidden">
-            <div className="flex items-center justify-between text-[10px]">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isPrinterConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                <span className="font-bold text-on-surface-variant">حالة الطابعة: {printStatusText}</span>
-              </div>
-              <span className="text-on-surface-variant font-mono">USB / IP: 192.168.1.44</span>
-            </div>
-            
             <button 
               onClick={handlePrint}
-              disabled={!selectedInvoice || isPrinting}
-              className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all ${
-                isPrinting 
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                  : 'bg-primary text-white hover:bg-primary/95 shadow-primary/20'
-              }`}
+              disabled={!selectedInvoice}
+              className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all bg-primary text-white hover:bg-primary/95 shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isPrinting ? (
-                <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin"></div>
-              ) : (
-                <Printer className="w-4 h-4" />
-              )}
-              <span>{isPrinting ? 'جاري الطباعة...' : 'تأكيد وطباعة الفاتورة'}</span>
+              <Printer className="w-4 h-4" />
+              <span>طباعة الفاتورة</span>
             </button>
           </div>
         </div>

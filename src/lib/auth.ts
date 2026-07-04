@@ -19,14 +19,21 @@ export async function getSession() {
 }
 
 /**
- * Returns the app role for the current user:
- * - Checks app_metadata.role set by admin (via Supabase dashboard or edge function)
- * - Falls back to 'guest' if not authenticated
+ * Returns the app role for the current user.
+ * Reads directly from `user_profiles` (the single source of truth for roles)
+ * instead of the JWT's app_metadata, which only updates on token refresh and
+ * can silently drift out of sync after an admin changes a user's role.
  */
 export async function getUserAppRole(): Promise<'admin' | 'supplier' | 'distributor' | 'guest'> {
   const session = await getSession();
   if (!session) return 'guest';
-  const role = session.user?.app_metadata?.role as string | undefined;
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .single();
+  if (error || !data) return 'guest';
+  const role = data.role as string;
   if (role === 'admin' || role === 'supplier' || role === 'distributor') return role;
   return 'guest';
 }

@@ -7,6 +7,7 @@ import {
 import { Product, Supplier, Invoice } from '../types';
 import { fmtMAD, fmtMADFull } from '../lib/currency';
 import { exportToExcel } from '../lib/export';
+import { generateUniqueId } from '../lib/id';
 
 interface DistributorPortalViewProps {
   distributor: Supplier;
@@ -65,7 +66,7 @@ export default function DistributorPortalView({
     try {
       const taxRate = 0.20;
       const itemTotal = saisieQty * product.sellPrice * (1 + taxRate);
-      const invoiceId = 'INV-DIST-' + Math.floor(100000 + Math.random() * 900000);
+      const invoiceId = generateUniqueId('INV-DIST');
       
       const newInvoice: Invoice = { 
         id: invoiceId,

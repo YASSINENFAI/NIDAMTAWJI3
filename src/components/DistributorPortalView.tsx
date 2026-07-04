@@ -325,9 +325,13 @@ export default function DistributorPortalView({
                   {filteredProducts.map(product => (
                     <div key={product.id} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-md transition-all">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
-                          <Boxes className="w-6 h-6 text-slate-400" />
-                        </div>
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.name} className="w-12 h-12 rounded-2xl object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center">
+                            <Boxes className="w-6 h-6 text-slate-400" />
+                          </div>
+                        )}
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black ${
                           product.stock > 10 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                         }`}>

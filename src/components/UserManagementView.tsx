@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-  UserPlus, RefreshCw, Eye, EyeOff,
-  ShieldCheck, Truck, Users, Copy, CheckCheck,
-  Loader2, AlertCircle, Mail, Lock, User, Phone,
-} from 'lucide-react';
+import { UserPlus, RefreshCw, Eye, EyeOff, ShieldCheck, Truck, Users, Copy, CheckCheck, Loader2, AlertCircle, Mail, Lock, User, Phone, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getSession } from '../lib/auth';
 
 interface AppUser {
   id: string;
@@ -17,29 +14,44 @@ interface AppUser {
 }
 
 const ROLE_LABELS = {
-  admin: { label: 'مدير', color: 'bg-violet-500/10 text-violet-400 border-violet-500/20', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-  supplier: { label: 'مورّد', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', icon: <Truck className="w-3.5 h-3.5" /> },
-  distributor: { label: 'موزّع', color: 'bg-teal-500/10 text-teal-400 border-teal-500/20', icon: <Users className="w-3.5 h-3.5" /> },
-  guest: { label: 'ضيف', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: <User className="w-3.5 h-3.5" /> },
+  admin:       { label: 'مدير',     color: 'bg-violet-500/10 text-violet-400 border-violet-500/20',  icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+  supplier:    { label: 'مورّد',    color: 'bg-blue-500/10 text-blue-400 border-blue-500/20',       icon: <Truck      className="w-3.5 h-3.5" /> },
+  distributor: { label: 'موزّع',   color: 'bg-teal-500/10 text-teal-400 border-teal-500/20',      icon: <Users      className="w-3.5 h-3.5" /> },
+  guest:       { label: 'ضيف',     color: 'bg-slate-500/10 text-slate-400 border-slate-500/20',   icon: <User       className="w-3.5 h-3.5" /> },
 };
 
 export default function UserManagementView() {
-  const [users, setUsers] = useState<AppUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [users, setUsers]               = useState<AppUser[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
 
-  // Form state
-  const [formEmail, setFormEmail] = useState('');
+  // Create-form state
+  const [showForm, setShowForm]         = useState(false);
+  const [formEmail, setFormEmail]       = useState('');
   const [formPassword, setFormPassword] = useState('');
-  const [formName, setFormName] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formRole, setFormRole] = useState<'supplier' | 'distributor'>('supplier');
-  const [showPass, setShowPass] = useState(false);
-  const [formLoading, setFormLoading] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [createdInfo, setCreatedInfo] = useState<{ email: string; password: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [formName, setFormName]         = useState('');
+  const [formPhone, setFormPhone]       = useState('');
+  const [formRole, setFormRole]         = useState<'supplier' | 'distributor'>('supplier');
+  const [showPass, setShowPass]         = useState(false);
+  const [formLoading, setFormLoading]   = useState(false);
+  const [formError, setFormError]       = useState<string | null>(null);
+  const [createdInfo, setCreatedInfo]   = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied]             = useState(false);
+
+  // Per-row action state
+  const [currentUserId, setCurrentUserId]     = useState<string | null>(null);
+  const [roleUpdatingId, setRoleUpdatingId]   = useState<string | null>(null);
+  const [deletingId, setDeletingId]           = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [actionError, setActionError]         = useState<string | null>(null);
+
+  // Repair orphans
+  const [repairLoading, setRepairLoading]   = useState(false);
+  const [repairMessage, setRepairMessage]   = useState<string | null>(null);
+
+  useEffect(() => {
+    getSession().then(s => setCurrentUserId(s?.user.id ?? null));
+  }, []);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -50,7 +62,7 @@ export default function UserManagementView() {
         .select('*')
         .order('created_at', { ascending: false });
       if (err) throw err;
-      setUsers((data || []) as AppUser[]);
+      setUsers(data as AppUser[]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -61,7 +73,7 @@ export default function UserManagementView() {
   useEffect(() => { loadUsers(); }, []);
 
   const generatePassword = () => {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!';
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!';
     return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
   };
 
@@ -80,18 +92,68 @@ export default function UserManagementView() {
       setShowForm(false);
       await loadUsers();
     } catch (e: any) {
-      setFormError(e.message || 'حدث خطأ غير متوقع');
+      setFormError(e.message);
     } finally {
       setFormLoading(false);
     }
   };
 
   const copyCredentials = (email: string, password: string) => {
-    navigator.clipboard.writeText(
-      `بيانات الدخول لنظام سحاب\nالبريد الإلكتروني: ${email}\nكلمة السر: ${password}\nالرابط: https://nidamtawji-3.vercel.app`
-    );
+    navigator.clipboard.writeText(`${email}\n${password}\nhttps://nidamtawji-3.vercel.app`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRepairOrphans = async () => {
+    setRepairLoading(true);
+    setRepairMessage(null);
+    setActionError(null);
+    try {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('link-orphan-users', { body: {} });
+      if (fnErr) throw fnErr;
+      if (fnData?.error) throw new Error(fnData.error);
+      setRepairMessage(fnData.message);
+      await loadUsers();
+    } catch (e: any) {
+      setActionError(e.message);
+    } finally {
+      setRepairLoading(false);
+    }
+  };
+
+  const handleChangeRole = async (userId: string, newRole: AppUser['role']) => {
+    setActionError(null);
+    setRoleUpdatingId(userId);
+    try {
+      const { error: err } = await supabase.rpc('admin_set_user_role', {
+        target_user_id: userId,
+        new_role: newRole,
+      });
+      if (err) throw err;
+      await loadUsers();
+    } catch (e: any) {
+      setActionError(e.message);
+    } finally {
+      setRoleUpdatingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    setActionError(null);
+    setDeletingId(userId);
+    try {
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('delete-user', {
+        body: { userId },
+      });
+      if (fnErr) throw fnErr;
+      if (fnData?.error) throw new Error(fnData.error);
+      setConfirmDeleteId(null);
+      await loadUsers();
+    } catch (e: any) {
+      setActionError(e.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -100,18 +162,27 @@ export default function UserManagementView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-black text-on-surface">إدارة المستخدمين</h2>
-          <p className="text-sm text-on-surface-variant mt-0.5">أنشئ حسابات للموردين والموزعين وأرسل لهم بيانات الدخول</p>
+          <p className="text-sm text-on-surface-variant mt-0.5">إنشاء الحسابات وتعديل الأدوار وحذف المستخدمين.</p>
         </div>
         <div className="flex gap-2">
           <button onClick={loadUsers} className="p-2 rounded-xl bg-surface-container border border-outline-variant hover:bg-surface-container-high transition-colors">
             <RefreshCw className="w-4 h-4 text-on-surface-variant" />
           </button>
           <button
+            onClick={handleRepairOrphans}
+            disabled={repairLoading}
+            title="ربط الحسابات المعطوبة"
+            className="flex items-center gap-2 px-3 py-2 bg-surface-container border border-outline-variant rounded-xl text-xs font-bold text-on-surface-variant hover:bg-surface-container-high transition-all disabled:opacity-60"
+          >
+            {repairLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            <span>إصلاح الحسابات</span>
+          </button>
+          <button
             onClick={() => { setShowForm(true); setFormPassword(generatePassword()); setCreatedInfo(null); }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-all shadow-md"
           >
             <UserPlus className="w-4 h-4" />
-            <span>إضافة مستخدم (مورد/موزع)</span>
+            <span>إضافة مستخدم</span>
           </button>
         </div>
       </div>
@@ -121,12 +192,12 @@ export default function UserManagementView() {
         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-3">
           <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
             <CheckCheck className="w-4 h-4" />
-            <span>تم إنشاء الحساب بنجاح! سيتم ربطه تلقائياً بملف المورد/الموزع.</span>
+            <span>تم إنشاء الحساب بنجاح! شارك هذه البيانات مع المستخدم.</span>
           </div>
           <div className="bg-slate-950/40 rounded-xl p-3 font-mono text-xs text-slate-300 space-y-1">
-            <div>📧 <span className="text-white">{createdInfo.email}</span></div>
-            <div>🔒 <span className="text-white">{createdInfo.password}</span></div>
-            <div>🔗 <span className="text-teal-400">https://nidamtawji-3.vercel.app</span></div>
+            <div><span className="text-white">{createdInfo.email}</span></div>
+            <div><span className="text-white">{createdInfo.password}</span></div>
+            <div><span className="text-teal-400">https://nidamtawji-3.vercel.app</span></div>
           </div>
           <button
             onClick={() => copyCredentials(createdInfo.email, createdInfo.password)}
@@ -143,50 +214,65 @@ export default function UserManagementView() {
         <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-4">
           <h3 className="font-bold text-on-surface text-sm">إنشاء حساب جديد</h3>
           <form onSubmit={handleCreateUser} className="space-y-3">
+            {/* Role selector */}
             <div className="grid grid-cols-2 gap-2">
-              {(['supplier', 'distributor'] as const).map((r) => (
-                <button key={r} type="button" onClick={() => setFormRole(r)}
+              {(['supplier', 'distributor'] as const).map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setFormRole(r)}
                   className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-bold transition-all ${
-                    formRole === r ? 'bg-primary text-white border-primary' : 'bg-surface border-outline-variant text-on-surface-variant hover:bg-surface-container'
-                  }`}>
+                    formRole === r
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-surface border-outline-variant text-on-surface-variant hover:bg-surface-container'
+                  }`}
+                >
                   {r === 'supplier' ? <Truck className="w-4 h-4" /> : <Users className="w-4 h-4" />}
                   <span>{r === 'supplier' ? 'مورّد' : 'موزّع'}</span>
                 </button>
               ))}
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><User className="w-3 h-3" />الاسم</label>
-                <input value={formName} onChange={e => setFormName(e.target.value)} required placeholder="اسم المورد أو الموزع"
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
+                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><User className="w-3 h-3" /> الاسم الكامل</label>
+                <input value={formName} onChange={e => setFormName(e.target.value)} required placeholder="مثال: أحمد الودعاني" className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Phone className="w-3 h-3" />الهاتف</label>
-                <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="0600000000" dir="ltr"
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
+                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Phone className="w-3 h-3" /> رقم الهاتف</label>
+                <input value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="0600000000" dir="ltr" className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Mail className="w-3 h-3" />البريد الإلكتروني</label>
-                <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} required placeholder="user@example.com" dir="ltr"
-                  className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
+                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Mail className="w-3 h-3" /> البريد الإلكتروني</label>
+                <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} required placeholder="user@example.com" dir="ltr" className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors" />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Lock className="w-3 h-3" />كلمة السر</label>
+                <label className="text-xs font-bold text-on-surface-variant flex items-center gap-1"><Lock className="w-3 h-3" /> كلمة المرور</label>
                 <div className="relative">
-                  <input type={showPass ? 'text' : 'password'} value={formPassword} onChange={e => setFormPassword(e.target.value)} required minLength={8} dir="ltr"
-                    className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors pl-8" />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={formPassword}
+                    onChange={e => setFormPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    dir="ltr"
+                    className="w-full bg-surface border border-outline-variant rounded-xl px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary/60 transition-colors pl-8"
+                  />
                   <button type="button" onClick={() => setShowPass(v => !v)} className="absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant">
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <button type="button" onClick={() => setFormPassword(generatePassword())} className="text-[10px] text-primary hover:underline">توليد كلمة سر تلقائية</button>
+                <button type="button" onClick={() => setFormPassword(generatePassword())} className="text-[10px] text-primary hover:underline">توليد كلمة مرور عشوائية</button>
               </div>
             </div>
+
             {formError && (
               <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" /><span>{formError}</span>
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{formError}</span>
               </div>
             )}
+
             <div className="flex gap-2 justify-end pt-1">
               <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container rounded-xl transition-colors">إلغاء</button>
               <button type="submit" disabled={formLoading} className="flex items-center gap-2 px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 disabled:opacity-60 transition-all">
@@ -195,6 +281,19 @@ export default function UserManagementView() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {repairMessage && (
+        <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-400 text-xs">
+          <CheckCheck className="w-4 h-4 flex-shrink-0" />
+          <span>{repairMessage}</span>
+        </div>
+      )}
+      {actionError && (
+        <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-400 text-xs">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{actionError}</span>
         </div>
       )}
 
@@ -214,12 +313,13 @@ export default function UserManagementView() {
             <Users className="w-6 h-6 text-on-surface-variant" />
           </div>
           <p className="text-on-surface font-bold">لا يوجد مستخدمون بعد</p>
-          <p className="text-on-surface-variant text-sm">اضغط على "إضافة مستخدم" لإنشاء أول حساب</p>
+          <p className="text-on-surface-variant text-sm">ابدأ بإضافة مورّد أو موزّع.</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {users.map((u) => {
-            const roleInfo = ROLE_LABELS[u.role] || ROLE_LABELS.guest;
+          {users.map(u => {
+            const roleInfo = ROLE_LABELS[u.role] ?? ROLE_LABELS.guest;
+            const isSelf = u.id === currentUserId;
             return (
               <div key={u.id} className="flex items-center justify-between p-4 bg-surface-container border border-outline-variant rounded-2xl hover:bg-surface-container-high transition-colors">
                 <div className="flex items-center gap-3">
@@ -227,16 +327,65 @@ export default function UserManagementView() {
                     <User className="w-4 h-4 text-primary" />
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-on-surface">{u.name || '—'}</p>
+                    <p className="text-sm font-bold text-on-surface">{u.name}{isSelf && <span className="text-[10px] text-on-surface-variant font-normal"> (أنت)</span>}</p>
                     <p className="text-xs text-on-surface-variant" dir="ltr">{u.email}</p>
                     {u.phone && <p className="text-[10px] text-on-surface-variant/60 font-mono mt-0.5">{u.phone}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+
+                <div className="flex items-center gap-2">
+                  {/* Role badge */}
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-black ${roleInfo.color}`}>
                     {roleInfo.icon}
                     <span>{roleInfo.label}</span>
                   </div>
+
+                  {/* Role change dropdown (hidden for self) */}
+                  {!isSelf && (
+                    <select
+                      value={u.role}
+                      disabled={roleUpdatingId === u.id}
+                      onChange={e => handleChangeRole(u.id, e.target.value as AppUser['role'])}
+                      className="text-xs bg-surface border border-outline-variant rounded-xl px-2 py-1.5 text-on-surface-variant focus:outline-none focus:border-primary/60 disabled:opacity-50"
+                    >
+                      <option value="guest">ضيف</option>
+                      <option value="distributor">موزّع</option>
+                      <option value="supplier">مورّد</option>
+                      <option value="admin">مدير</option>
+                    </select>
+                  )}
+
+                  {/* Spinner while role is updating */}
+                  {roleUpdatingId === u.id && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
+
+                  {/* Delete (hidden for self) */}
+                  {!isSelf && (
+                    <div>
+                      {confirmDeleteId === u.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            disabled={deletingId === u.id}
+                            className="px-2 py-1.5 rounded-xl bg-rose-500 text-white text-[10px] font-bold hover:bg-rose-600 transition-colors disabled:opacity-60"
+                          >
+                            {deletingId === u.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'تأكيد الحذف'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="px-2 py-1.5 rounded-xl bg-surface border border-outline-variant text-[10px] text-on-surface-variant hover:bg-surface-container transition-colors"
+                          >إلغاء</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(u.id)}
+                          title="حذف المستخدم"
+                          className="p-2 rounded-xl bg-surface border border-outline-variant hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 text-on-surface-variant transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
